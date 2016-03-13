@@ -2,7 +2,7 @@
  *       HE Jun's simple chess program
  */
 
-#define VERSION "V3.20160311.1"
+#define VERSION "V3.20160313.1"
 #define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -51,6 +51,7 @@ int pv[MAX_PLY][MAX_PLY];
 unsigned long pv_rear[MAX_PLY];
 
 signed char undo_stack[10*MAX_PLY], *undo_sp;
+signed char undo_stack[10*MAX_PLY], *undo_sp;
 U64 hash_arr[2048];
 
 int maxdepth   =  MAX_PLY;
@@ -60,8 +61,7 @@ struct move
 {
     short move;
     unsigned int prescore;
-};
-struct move move_stack[35*MAX_PLY], *move_sp;
+}move_stack[35*MAX_PLY], *move_sp;
 
 int piece_square[2][13][64]; /* piece/square table*/
 U64 zobrist[13][64];  /* Used for hash-key */
@@ -215,8 +215,20 @@ int opening(void)
 
 /* attacks */
 #define DISTANCE(a,b) (DIFF(F(a),F(b)) + DIFF(R(a),R(b)))
-signed short king_step[8]= {1,9,8,7,-1,-9,-8,-7};
-signed short knight_jump[8]= {-6,10,17,15,-10,6,-15,-17};
+signed short king_step[8]=
+{
+    +OFFSET_E, +OFFSET_N,
+    -OFFSET_E, -OFFSET_N,
+    +OFFSET_E+OFFSET_N, +OFFSET_E-OFFSET_N,
+    -OFFSET_E+OFFSET_N, -OFFSET_E-OFFSET_N
+};
+signed short knight_jump[8]=
+{
+    +OFFSET_E*2+OFFSET_N, +OFFSET_E*2-OFFSET_N,
+    -OFFSET_E*2+OFFSET_N, -OFFSET_E*2-OFFSET_N,
+    +OFFSET_N*2+OFFSET_E, +OFFSET_N*2-OFFSET_E,
+    -OFFSET_N*2+OFFSET_E, -OFFSET_N*2-OFFSET_E,
+};
 
 int move_king(int fr, int offset)
 {
@@ -277,11 +289,11 @@ U64 compute_hash(void)
 }
 
 /*
- *    Piece/square table &&
+ *    Piece/square table && Piece Value
  */
-#define PawnValueMg 198
-#define PawnValueEg 258
-#define KnightValueMg 817
+#define PawnValueMg    198
+#define PawnValueEg    258
+#define KnightValueMg  817
 #define KnightValueEg  846
 #define BishopValueMg  836
 #define BishopValueEg  857
@@ -311,36 +323,36 @@ int tapered_piece_value(pc)
 
 void piece_square_table_init(void)
 {
-    const int CTR[] = {  1,  2,  3,  4,  4,  5,  5,  5};
-    const int CTF[] = {  1,  2,  3,  5,  5,  3,  2,  1};
+    const int CTF[] = {  1,  2,  3,  4,  4,  3,  2,  1};
+    const int CTR[] = {  0,  1,  2,  3,  4,  3,  2,  1};
 
-    const int KMF[] = { 50, 40, 30,  0, 10,  0, 50, 30};
-    const int KMR[] = { 50, 20, 10,  0,-10,-20,-30,-40};
-    const int KEF[] = { 15, 40, 44, 49, 49, 44, 40, 15};
-    const int KER[] = { 15, 40, 44, 49, 49, 44, 40, 15};
+    const int KMF[] = {291,344,294,219,219,294,344,291};
+    const int KMR[] = {291,205,136,137, 94, 70, 48, 31};
+    const int KEF[] = {132,187,224,227,227,224,187,132};
+    const int KER[] = {112,159,191,204,227,197,161,111};
 
-    const int QMF[] = { 10, 11, 12,  3, 13, 12, 11, 10};
-    const int QMR[] = {  1, 12, 13, 14, 14, 13, 12, 11};
-    const int QEF[] = { 10, 11, 12, 13, 13, 12, 11, 10};
-    const int QER[] = { 11, 12, 13, 14, 14, 13, 12, 11};
+    const int QMF[] = {113,121,131,142,142,130,120,110};
+    const int QMR[] = {100,110,120,132,130,120,110,100};
+    const int QEF[] = {110,120,130,140,140,130,120,110};
+    const int QER[] = {100,110,120,130,130,120,110,100};
 
-    const int RMF[] = {-10,  0,  3,  5,  5,  0,  0,-10};
-    const int RMR[] = {-10,  0,  3,  5,  5,  3, 10,  0};
+    const int RMF[] = {-25,-16,-16, -9, -9,-16,-16,-25};
+    const int RMR[] = { -9,  0,  2,  2,  1,  2, 12, -5};
 
-    const int BMF[] = {  3,  4, -5,  6,  6, -5,  4,  3};
-    const int BMR[] = { -6,  5,  6,  7,  7,  6,  5,  4};
-    const int BEF[] = {  3,  4,  5,  6,  6,  5,  4,  3};
-    const int BER[] = {  4,  5,  6,  7,  7,  6,  5,  4};
+    const int BMF[] = {-54,-23,-35,-44,-44,-35,-23,-54};
+    const int BMR[] = {-44, -9,  1,  0, -1, -8,-12,-39};
+    const int BEF[] = {-36,-13,-15,  7,  7,-15,-13,-36};
+    const int BER[] = {-28, -5,  8,  7,  3,  1, -4,-27};
 
-    const int NMF[] = {  1, -8,  3,  4,  4,  3, -8,  1};
-    const int NMR[] = { -9,  2,  3,  4,  4,  3,  2,  1};
-    const int NEF[] = {  1,  2,  3,  4,  4,  3,  2,  1};
-    const int NER[] = {  1,  2,  3,  4,  4,  3,  2,  1};
+    const int NMF[] ={-143,-96,-80,-73,-73,-80,-96,-143};
+    const int NMR[] = {-73,-10,  9, 47, 50, 71, 14,-29};
+    const int NEF[] = {-41,-25,  2, 38, 38,  2,-25,-41};
+    const int NER[] = {-14,  9, 28, 38, 41, 27, 13,-13};
 
-    const int PMF[] = { 10, 10, 10,  5,  0, 10, 10, 10};
-    const int PMR[] = {  0,-10,  5, 10,  0,  1,  2,999};
-    const int PEF[] = {  5, 10, 15, 20, 20, 15, 10,  5};
-    const int PER[] = {  0,-20,-10,  0, 20, 50, 80,999};
+    const int PMF[] = {-19,  1,  7,  3,  3,  7,  1,-19};
+    const int PMR[] = {  0,  3, 24, 35, 21, -2, -4,  0};
+    const int PEF[] = {  1,  3, -8, -3, -3, -8,  3,  1};
+    const int PER[] = {  0, -2,  4, -3, -6,  4, 18,  0};
 
     int sq,f,r,MG,EG;
     for (sq=0; sq<64; sq++)
@@ -409,12 +421,15 @@ int piece_square_value(int pc, int sq)
  *      fill side structs
  */
 
-void fss_slide(int sq, int start, int step, struct side *s)
+void fss_slide(int sq, struct side *s)
 {
     int i;
     int to;
+    int pc = board[sq];
+    int start = pc == WHITE_BISHOP || pc == BLACK_BISHOP ? 4 : 0;
+    int end = pc == WHITE_ROOK || pc == BLACK_ROOK ? 3 : 7;
 
-    for (i=start; i<8; i+=step)
+    for (i=start; i<=end; i++)
     {
         to=move_king(sq,king_step[i]);
         while (to!=-1)
@@ -469,27 +484,27 @@ void fill_side_struct(void)
             break;
 
         case WHITE_QUEEN:
-            fss_slide(sq, 0, 1, &white);
+            fss_slide(sq, &white);
             break;
 
         case BLACK_QUEEN:
-            fss_slide(sq, 0, 1,  &black);
+            fss_slide(sq, &black);
             break;
 
         case WHITE_ROOK:
-            fss_slide(sq, 0, 2,  &white);
+            fss_slide(sq, &white);
             break;
 
         case BLACK_ROOK:
-            fss_slide(sq, 0, 2, &black);
+            fss_slide(sq, &black);
             break;
 
         case WHITE_BISHOP:
-            fss_slide(sq, 1, 2, &white);
+            fss_slide(sq, &white);
             break;
 
         case BLACK_BISHOP:
-            fss_slide(sq, 1, 2, &black);
+            fss_slide(sq, &black);
             break;
 
         case WHITE_KNIGHT:
@@ -811,12 +826,15 @@ void push_pawn_move(int fr, int to)
         push_move(fr, to);
     }
 }
-void gen_all_slides(int fr, int start, int step)
+void gen_all_slides(int fr)
 {
     int i;
     int to;
+    int pc = board[fr];
+    int start = pc == WHITE_BISHOP || pc == BLACK_BISHOP ? 4 : 0;
+    int end = pc == WHITE_ROOK || pc == BLACK_ROOK ? 3 : 7;
 
-    for (i=start; i<8; i+=step)
+    for (i=start; i<=end; i++)
     {
         to=move_king(fr,king_step[i]);
         while (to!=-1)
@@ -877,17 +895,14 @@ void gen_all(void)
 
         case WHITE_QUEEN:
         case BLACK_QUEEN:
-            gen_all_slides(fr, 0, 1);
-            break;
 
         case WHITE_ROOK:
         case BLACK_ROOK:
-            gen_all_slides(fr, 0, 2);
-            break;
+
 
         case WHITE_BISHOP:
         case BLACK_BISHOP:
-            gen_all_slides(fr, 1, 2);
+            gen_all_slides(fr);
             break;
 
         case WHITE_KNIGHT:
@@ -1044,12 +1059,15 @@ void gen_all(void)
     }
 }
 
-void gen_caps_slides(int fr, int start, int step)
+void gen_caps_slides(int fr)
 {
     int i;
     int to;
+    int pc = board[fr];
+    int start = pc == WHITE_BISHOP || pc == BLACK_BISHOP ? 4 : 0;
+    int end = pc == WHITE_ROOK || pc == BLACK_ROOK ? 3 : 7;
 
-    for (i=start; i<8; i+=step)
+    for (i=start; i<=end; i++)
     {
         to=move_king(fr,king_step[i]);
         while (to!=-1)
@@ -1104,14 +1122,15 @@ void gen_caps(void)
             }
             break;
 
+            case WHITE_BISHOP:
+        case BLACK_BISHOP:
+
         case WHITE_QUEEN:
         case BLACK_QUEEN:
-            gen_caps_slides(fr, 0, 1);
-            break;
 
         case WHITE_ROOK:
         case BLACK_ROOK:
-            gen_caps_slides(fr, 0, 2);
+            gen_caps_slides(fr);
             break;
 
         case WHITE_KNIGHT:
@@ -1126,11 +1145,6 @@ void gen_caps(void)
                         push_move(fr, to);
                 }
             }
-            break;
-
-        case WHITE_BISHOP:
-        case BLACK_BISHOP:
-            gen_caps_slides(fr, 1, 2);
             break;
 
         case WHITE_PAWN:
@@ -1474,9 +1488,9 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
             if (t == 0)
                 /**< do nothig */;
             else if (t>0)
-                score += piece_square_value(0, sq);
+                score += piece_square_value(0, sq)*t;
             else
-                score -= piece_square_value(0, FLIP(sq));
+                score -= piece_square_value(0, FLIP(sq))*t;
         }
         if (pc==EMPTY)
         {
@@ -2241,14 +2255,15 @@ int search_contral(int depth)
 }
 int search_quisec(int alpha, int beta)
 {
-    int best_score;
     int score;
     struct move *moves = move_sp;
-    int in_check;
+    int in_check = opp->attack[self->king];
+    int best_score = -INF;
     int i;
     int PV_move=0;
 
     nodes++;
+
     /* draw by 50 moves rules */
     if (ply-board[RULE50] > 100) return DRAWN_VALUE;
 
@@ -2264,38 +2279,24 @@ int search_quisec(int alpha, int beta)
         PV_move = pv[start_ply][ply];
 
 
+    histroy[PV_move&07777]              |= PRESCORE_PV_MOVE;
+    histroy[killer_move[ply][0]&07777]  |= PRESCORE_KILLER_MOVE;
+    histroy[killer_move[ply][1]&07777]  |= PRESCORE_KILLER_MOVE;
 
-    in_check = opp->attack[self->king];
     if (in_check)
     {
-        best_score = -INF;
-
-        histroy[PV_move&07777]              |= PRESCORE_PV_MOVE;
-        histroy[killer_move[ply][0]&07777]  |= PRESCORE_KILLER_MOVE;
-        histroy[killer_move[ply][1]&07777]  |= PRESCORE_KILLER_MOVE;
-
         gen_all();
-        qsort(moves, move_sp-moves, sizeof(*moves), cmp_move_asc);
     }
     else
     {
-        best_score = eval(1);
-        if (best_score >= beta)
-            return best_score;
-        if (best_score > alpha)
-            alpha = best_score;
-
-        histroy[PV_move&07777]              |= PRESCORE_PV_MOVE;
-        histroy[killer_move[ply][0]&07777]  |= PRESCORE_KILLER_MOVE;
-        histroy[killer_move[ply][1]&07777]  |= PRESCORE_KILLER_MOVE;
-
         gen_caps();
-        qsort(moves, move_sp-moves, sizeof(*moves), cmp_move_asc);
     }
 
     histroy[PV_move&07777]              &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][0]&07777]  &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][1]&07777]  &= (PRESCORE_CAPTURES-1);
+
+    qsort(moves, move_sp-moves, sizeof(*moves), cmp_move_asc);
 
     while (move_sp > moves)
     {
@@ -2333,7 +2334,7 @@ int search_quisec(int alpha, int beta)
         if (in_check)
             best_score = -WIN;
         else
-            best_score = DRAWN_VALUE;
+            best_score = eval(1);
     }
 
     move_sp = moves;
@@ -2342,11 +2343,11 @@ int search_quisec(int alpha, int beta)
 
 int search_full(int depth, int alpha, int beta)
 {
-    int best_score = -INF;
     int best_move = 0;
     int score;
     struct move *moves = move_sp;
     int in_check = opp->attack[self->king];
+    int best_score = -INF;
     struct mem tt;
     int ttflag = TTFLAG_ALPHA;
     int i;
@@ -2506,7 +2507,7 @@ int search_main(void)
     int depth = 1;
     int score;
     int move;
-    int best_score=-INF;
+    int best_score = -INF;;
     int alpha=-INF, beta=+INF;
     unsigned long node=0,n;
     struct move *m;
@@ -2662,8 +2663,8 @@ int search_main(void)
         if (time_limit)
         {
             clock_t now = clock();
-            unsigned long rate = nodes / (MAX(1, (now - start_time)));
-            if (now + ((nodes + nodes) / rate) >= timer)
+            double rate = (double)nodes / (double)(MAX(1, (now - start_time)));
+            if (now + (clock_t)((double)(nodes) / (double)(MAX(1, rate))) >= timer)
                 break;
         }
 
@@ -3072,7 +3073,7 @@ void handle_command(char* name,char* line)
  *    Main and initialization functions
  */
 char *startup_message=
-    "HJCHESS " VERSION "\t(C) HE Jun (aka Jeremy.Ho) 2016\n";
+    "HJCHESS " VERSION " (C) HE Jun (aka SkyWolf,Jeremy) 2012-2016\n";
 
 void response_move(void)
 {
