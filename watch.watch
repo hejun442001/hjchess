@@ -1,0 +1,7 @@
+board
+core
+hash_stack
+hash_stack[ply]
+ply
+undo_sp-undo_stack
+undo_stack
