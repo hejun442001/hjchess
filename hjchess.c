@@ -2,7 +2,7 @@
  *       HE Jun's simple chess program
  */
 
-#define VERSION "V3.20160313.2"
+#define VERSION "V3.20160315.1"
 #define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -2227,13 +2227,13 @@ void setup_board(char *fen)
  *    Search
  */
 unsigned long nodes,start_ply;
-clock_t timer,start_time;
+clock_t timer,start_time,time_log;
 BYTE stop_search;
 #define WIN 32000
 #define MATE (WIN-100)
 void init_timer(void)
 {
-    start_time=clock();
+    time_log = start_time=clock();
     timer=start_time+time_limit - CLOCKS_PER_SEC;
     stop_search=0;
 }
@@ -2294,7 +2294,7 @@ int search_full(int depth, int alpha, int beta)
         ttable_move = tt.move;
     }
 
-    if (ply >= MAX_PLY)
+    if (ply >= MAX_PLY || search_contral(0) == 2)
         return eval(1);
 
     pv_rear[ply]=pv_rear[ply+1]=0;
@@ -2379,7 +2379,17 @@ int search_full(int depth, int alpha, int beta)
             }
         }
 
-        if (search_contral(0)==2) break;
+        if (clock() - time_log > CLOCKS_PER_SEC)
+        {
+            time_log = clock();
+            printf("info refutation" );
+            for (i=ply; i<=pv_rear[ply]; i++)
+            {
+                printf(" ");
+                print_move_long(pv[ply][i]);
+            }
+            printf("\n");
+        }
     }
 
     /* checkmate or stalemate */
@@ -2393,7 +2403,6 @@ int search_full(int depth, int alpha, int beta)
             best_score = DRAWN_VALUE;
     }
 
-    if (!stop_search)
     {
         tt.score = best_score;
         tt.hash = hash_arr[ply];
@@ -2425,8 +2434,8 @@ int search_main(void)
     int score;
     int move;
     int best_score = -INF;;
-    int alpha=-INF, beta=+INF;
-    unsigned long node=0,n;
+    int alpha=-INF, beta=+INF, delta;
+    unsigned long n;
     struct move *m;
     int in_check = 0;
     struct mem tt;
@@ -2474,12 +2483,10 @@ int search_main(void)
     while (search_contral(depth)==0)
     {
         time_log = ply_start_time = clock();
-
-        node = nodes;
         bestmovechange = low_fail = 0;
-
-
         m = move_stack;
+        printf("info depth %d\n",depth);
+
 
         while (m < move_sp)
         {
@@ -2493,18 +2500,14 @@ int search_main(void)
                 continue;
             }
 
-            if (clock() - time_log > CLOCKS_PER_SEC
-                || time_log == ply_start_time)
+            if (clock() - time_log > CLOCKS_PER_SEC)
             {
                 time_log = clock();
-                printf("depth %d currmovenumber %d currmove ",
-                       depth,m-move_stack+1);
+                printf("info depth %d "
+                       "currmovenumber %d currmove ",
+                       depth,
+                       m-move_stack+1);
                 print_move_long(m->move);
-                if (move != 0)
-                {
-                    printf(" bestmove ");
-                    print_move_long(move);
-                }
                 printf("\n");
             }
 
@@ -2544,53 +2547,50 @@ int search_main(void)
                     pv_rear[ply]=ply;
             }
 
-
-
-
-            if (search_contral(depth)==2) break;
-
             m++;
         }
 
+        delta = 18 + 5 * depth;
         if (best_score >= beta)
         {
             alpha = (alpha + beta) / 2;
-            beta = INF;
+            beta = best_score + delta;
         }
         else if (best_score < alpha)
         {
             low_fail = 1;
-            alpha = -INF;
+            alpha = best_score - delta;
             beta = (alpha + beta) / 2;
         }
         else
         {
-            alpha = best_score - 18;
-            beta = best_score + 18;
+            alpha = best_score - delta;
+            beta =best_score + delta;
         }
 
         {
             time_log = clock();
-            used = MAX(1,(time_log-ply_start_time)/CLOCKS_PER_SEC);
+            used = MAX(1,(time_log-ply_start_time));
 
-            printf("depth %d nodes %lu time %lu nps %lu score ",
+            printf("info depth %d time %lu nodes %lu nps %lu score ",
                    depth,
-                   nodes-node,
                    used,
-                   (nodes-node) / used);
+                   nodes,
+                   nodes / MAX(1, used / CLOCKS_PER_SEC) );
             if (abs(best_score) <= MATE)
                 printf ("cp %d", best_score * 100 / PawnValueEg);
             else
                 printf ("mate %d", (best_score > 0 ? WIN - best_score + 1 : -MATE - best_score) / 2);
+            if (best_score >= beta)
+                printf(" lowerbound");
+            else if(best_score <= alpha)
+                printf(" upperbound");
 
-            if (move)
+            printf(" pv");
+            for (i=ply; i<=pv_rear[ply]; i++)
             {
-                printf(" pv");
-                for (i=ply; i<=pv_rear[ply]; i++)
-                {
-                    printf(" ");
-                    print_move_long(pv[ply][i]);
-                }
+                printf(" ");
+                print_move_long(pv[ply][i]);
             }
             printf("\n");
         }
@@ -2609,6 +2609,32 @@ int search_main(void)
         }
 
         depth++;
+    }
+
+    {
+        time_log = clock();
+        used = MAX(1,(time_log-start_time));
+
+        printf("info time %lu nodes %lu nps %lu score ",
+               used,
+               nodes,
+               nodes / MAX(1, used / CLOCKS_PER_SEC));
+        if (abs(best_score) <= MATE)
+            printf ("cp %d", best_score * 100 / PawnValueEg);
+        else
+            printf ("mate %d", (best_score > 0 ? WIN - best_score + 1 : -MATE - best_score) / 2);
+        if (best_score >= beta)
+            printf(" lowerbound");
+        else if(best_score <= alpha)
+            printf(" upperbound");
+
+        printf(" pv");
+        for (i=ply; i<=pv_rear[ply]; i++)
+        {
+            printf(" ");
+            print_move_long(pv[ply][i]);
+        }
+        printf("\n");
     }
 
     move_sp = move_stack;
