@@ -2,7 +2,7 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20160316.1"
+#define VERSION "V3.20160318.1"
 #define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -324,45 +324,40 @@ int tapered_piece_value(pc)
 
 void piece_square_table_init(void)
 {
-    const int CTF[] = {  1,  2,  3,  4,  4,  3,  2,  1};
-    const int CTR[] = {  0,  1,  2,  3,  4,  3,  2,  1};
 
-    const int KMF[] = {204,212,175,137,137,175,212,204};
-    const int KMR[] = {291,205,136,137, 94, 70, 48, 31};
-    const int KEF[] = {132,187,224,227,227,224,187,132};
-    const int KER[] = {112,159,191,204,227,197,161,111};
+    const int KMF[] = { 64,128, 64,  0, 32,  0,128, 64};
+    const int KMR[] = {128, 64, 32, 16,  8,  4,  2,  1};
+    const int KEF[] = { 16, 32, 64,128,128, 64, 32, 16};
+    const int KER[] = { 16, 32, 64,128,128, 64, 32, 16};
 
-    const int QMF[] = { -1,  8, 10,  7,  7, 10,  8, -1};
-    const int QMR[] = { -1,  8,  9,  7,  7, 10,  6,  0};
-    const int QEF[] = {-29, -5,  9, 17, 17,  9, -5,-29};
-    const int QER[] = {-29, -4,  5, 17, 23,  2, -7,-30};
+    const int QMF[] = {  8, 16, 64, 32, 32, 64, 16,  8};
+    const int QMR[] = {  0, 16, 32, 64, 32, 16,  8,  4};
+    const int QEF[] = {  8, 16, 32, 64, 64, 32, 16,  8};
+    const int QER[] = {  8, 16, 32, 64, 64, 32, 16,  8};
 
-    const int RMF[] = {-22, -6, -1,  2,  2, -1, -6,-22};
-    const int RMR[] = { -9,  0,  2,  2,  1,  2, 12, -5};
+    const int RMF[] = {  8,  0,  0, 32, 32, 16,  0,  8};
+    const int RMR[] = {  0,  4,  8, 16, 16,  8, 32,  4};
 
-    const int BMF[] = {-21, 18, 11,  0,  0, 11, 18,-21};
-    const int BMR[] = {-44, -9,  1,  0, -1, -8,-12,-39};
-    const int BEF[] = {-36,-13,-15,  7,  7,-15,-13,-36};
-    const int BER[] = {-28, -5,  8,  7,  3,  1, -4,-27};
+    const int BMF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int BMR[] = {  0,  4,  8, 16,  8,  4,  2,  1};
+    const int BEF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int BER[] = {  2,  4,  8, 16, 16,  8,  4,  2};
 
-    const int NMF[] = {-25, 18, 43, 47, 47, 43, 18,-25};
-    const int NMR[] = {-73,-10,  9, 47, 50, 71, 14,-29};
-    const int NEF[] = {-41,-25,  2, 38, 38,  2,-25,-41};
-    const int NER[] = {-14,  9, 28, 38, 41, 27, 13,-13};
+    const int NMF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int NMR[] = {  0,  4,  8, 16,  8,  4,  2,  1};
+    const int NEF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int NER[] = {  2,  4,  8, 16, 16,  8,  4,  2};
 
-    const int PMF[] = {-25,-14, 20, 35, 35, 20,-14,-25};
-    const int PMR[] = {  0,  3, 24, 35, 21, -2, -4,  0};
-    const int PEF[] = {  1,  3, -8, -3, -3, -8,  3,  1};
-    const int PER[] = {  0, -2,  4, -3, -6,  4, 18,  0};
+    const int PMF[] = {  8,  4,  2,  0,  0,  2,  4,  8};
+    const int PMR[] = {  0,  0,  2,  4,  2,  2,  8,  0};
+    const int PEF[] = {  1,  2,  4,  8,  8,  4,  2,  1};
+    const int PER[] = {  0,  0,  1,  2,  4,  6,  8,  0};
 
     int sq,f,r,MG,EG;
     for (sq=0; sq<64; sq++)
     {
         f=F(sq);
         r=R(sq);
-        /* contral table */
-
-        piece_square[0][0][sq]=CTF[f]+CTR[r]+1*(r>RANK_4);
 
         /* kings */
 
@@ -1473,6 +1468,7 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
     int score;
     int w,b,t;
     int drawn=(mode==0)?-INF:DRAWN_VALUE;
+    int percent_val;
 
     score=(white.mat-black.mat);
 
@@ -1484,64 +1480,59 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         f=F(sq)+1;
         pc=board[sq];
 
+        percent_val = piece_square_value(pc,sq) / 100;
         {
-            int t = white.attack[sq] - black.attack[sq];
-            if (t == 0)
-                /**< do nothig */;
-            else if (t>0)
-                score += piece_square_value(0, sq)*t;
-            else
-                score -= piece_square_value(0, FLIP(sq))*t;
+            t = 0;
+            t += (PIECE_COLOR(pc)?black.attack[sq]:white.attack[sq])>0?-2:2;
+            t += (PIECE_COLOR(pc)?white.attack[sq]:black.attack[sq])>0?1:-1;
+            score += t * (percent_val);
         }
         if (pc==EMPTY)
         {
             continue;
         }
-
         score += piece_square_value(pc, sq);
 
         switch(pc)
         {
         case WHITE_KING:
-            t = eval_white_king_pawn()*8;
+            t = eval_white_king_pawn() * percent_val;
             score -= tapered(t, 0);
             break;
 
         case BLACK_KING:
-            t = eval_white_king_pawn()*8;
+            t = eval_white_king_pawn() * percent_val;
             score += tapered(t, 0);
             break;
 
         case WHITE_ROOK:
             if (white.pawn[f]==0)
             {
-                score+=tapered(19, 10);
+                score += percent_val;
                 if (black.pawn[f]==7)
-                    score+=tapered(43, 21);
+                    score += percent_val * 4;
             }
             else if (((F(w) < FILE_E) == (F(sq) < F(w)))
                      && (R(w) == R(sq) || R(w) == RANK_1))
-                score -= (tapered(92, 0) - tapered(piece_square[0][WHITE_ROOK][sq], 0))
-                         * (1 + ((board[CASTLE] & (CASTLE_WHITE_SHORT|CASTLE_WHITE_LONG))==0));
+                score -= percent_val * (1 + ((board[CASTLE] & (CASTLE_WHITE_SHORT|CASTLE_WHITE_LONG))==0));
 
             if (black.pawn[f]!=7)
-                score+=tapered(10, 28);
+                score+=percent_val;
 
             break;
         case BLACK_ROOK:
             if (black.pawn[f]==7)
             {
-                score-=tapered(19, 10);
+                score-=percent_val;
                 if (white.pawn[f]==0)
-                    score-=tapered(43, 21);
+                    score-=percent_val;
             }
             else if (((F(b) < FILE_E) == (F(sq) < F(b)))
                      && (R(w) == R(sq) || R(w) == RANK_8))
-                score += (tapered(92, 0) - tapered(piece_square[0][BLACK_ROOK][sq], 0))
-                         * (1 + (board[CASTLE] & (CASTLE_BLACK_LONG|CASTLE_BLACK_SHORT))==0);
+                score += percent_val * (1 + (board[CASTLE] & (CASTLE_BLACK_LONG|CASTLE_BLACK_SHORT))==0);
 
             if (white.pawn[f]!=0)
-                score-=tapered(10, 28);
+                score -= percent_val;
             break;
 
         case WHITE_QUEEN:
@@ -1553,67 +1544,67 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         case WHITE_KNIGHT:
             if (    R(sq) < RANK_5
                     && board[sq + OFFSET_N] == WHITE_PAWN)
-                score += tapered(16, 0);
+                score += percent_val;
             break;
         case BLACK_KNIGHT:
             if (    R(sq) >= RANK_5
                     && board[sq - OFFSET_N] == WHITE_PAWN)
-                score -= tapered(16, 0);
+                score -= percent_val;
             break;
 
         case WHITE_BISHOP:
             if (    R(sq) < RANK_5
                     && board[sq + OFFSET_N] == WHITE_PAWN)
-                score += tapered(16, 0);
+                score += percent_val;
             break;
         case BLACK_BISHOP:
             if (    R(sq) >= RANK_5
                     && board[sq - OFFSET_N] == WHITE_PAWN)
-                score -= tapered(16, 0);
+                score -= percent_val;
             break;
 
         case WHITE_PAWN:
             /* penish for doubled */
             if (white.pawn[f] > R(sq))
-                score -= 7;
+                score -= percent_val;
 
             /* penish for isolated */
             if ((white.pawn[f - 1] == 0) &&
                     (white.pawn[f + 1] == 0))
-                score -= 10;
+                score -= percent_val;
 
             /* penish for backwards */
             else if ((white.pawn[f - 1] < R(sq)) &&
                      (white.pawn[f + 1] < R(sq)))
-                score -= 5;
+                score -= percent_val;
             break;
 
             /* bonus for passed */
             if ((black.pawn[f - 1] == 7) &&
                     (black.pawn[f] == 7) &&
                     (black.pawn[f + 1] == 7))
-                score += R(sq);
+                score += percent_val;;
 
         case BLACK_PAWN:
             /* penish for doubled */
             if (black.pawn[f] < R(sq))
-                score += 7;
+                score += percent_val;
 
             /* penish for isolated */
             if ((black.pawn[f - 1] == 7) &&
                     (black.pawn[f + 1] == 7))
-                score += 10;
+                score += percent_val;
 
             /* penish for backwards */
             else if ((black.pawn[f - 1] > R(sq)) &&
                      (black.pawn[f + 1] > R(sq)))
-                score += 5;
+                score += percent_val;
 
             /* bonus for passed */
             if ((white.pawn[f - 1] == 0) &&
                     (white.pawn[f] == 0) &&
                     (white.pawn[f + 1] == 0))
-                score -= 7-R(sq);
+                score -= percent_val;
             break;
 
         default:
@@ -2273,15 +2264,16 @@ int search_full(int depth, int alpha, int beta)
     int ttable_move = 0;
     int PV_move = 0;
     unsigned long move_no = 0;
+    int drawFactor = 1;
 
     nodes++;
 
     /* draw by 50 moves rules */
-    if (ply-board[RULE50] > 100) return DRAWN_VALUE;
+    drawFactor *= (board[RULE50] - ply + 1);
 
     /* draw by postion repetetion */
     for (i=ply-4; i>=board[RULE50]; i-=2)
-        if (hash_arr[i] == hash_arr[ply]) return DRAWN_VALUE;
+        if (hash_arr[i] == hash_arr[ply]) drawFactor *= 2;
 
     /* check transposition table */
     tt = core[(hash_arr[ply]&(CORE-1))];
@@ -2300,7 +2292,7 @@ int search_full(int depth, int alpha, int beta)
     }
 
     if (ply >= MAX_PLY || search_contral(0) == 2)
-        return eval(1);
+        return eval(1) / drawFactor;
 
     pv_rear[ply]=pv_rear[ply+1]=0;
     if (ply <= pv_rear[start_ply])
@@ -2421,7 +2413,7 @@ int search_full(int depth, int alpha, int beta)
         if (in_check)
             best_score = -WIN;
         else if (depth <= 0)
-            best_score = eval(1);
+            best_score = eval(1) / drawFactor;
         else
             best_score = DRAWN_VALUE;
     }
