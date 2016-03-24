@@ -2,7 +2,7 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20160318.1"
+#define VERSION "V3.20160324.1"
 #define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -49,14 +49,13 @@ BYTE computer[3];
 
 int pv[MAX_PLY][MAX_PLY];
 unsigned long pv_rear[MAX_PLY];
-unsigned long move_searched[MAX_PLY];
 
 signed char undo_stack[10*MAX_PLY], *undo_sp;
 signed char undo_stack[10*MAX_PLY], *undo_sp;
 U64 hash_arr[2048];
 
-int maxdepth   =  MAX_PLY;
-unsigned long time_limit = 60*CLOCKS_PER_SEC;
+int maxdepth = MAX_PLY;
+unsigned long time_limit = 60 * CLOCKS_PER_SEC;
 
 struct move
 {
@@ -302,18 +301,19 @@ U64 compute_hash(void)
 #define RookValueEg    1281
 #define QueenValueMg   2521
 #define QueenValueEg   2558
+#define KingValue (4 * QueenValueEg)
 
 int pieceValue[2][13] =
 {
     {
         0,
-        0, QueenValueMg, RookValueMg, BishopValueMg, KnightValueMg, PawnValueMg,
-        0, QueenValueMg, RookValueMg, BishopValueMg, KnightValueMg, PawnValueMg
+        KingValue, QueenValueMg, RookValueMg, BishopValueMg, KnightValueMg, PawnValueMg,
+        KingValue, QueenValueMg, RookValueMg, BishopValueMg, KnightValueMg, PawnValueMg
     },
     {
         0,
-        0, QueenValueEg, RookValueEg, BishopValueEg, KnightValueEg, PawnValueEg,
-        0, QueenValueEg, RookValueEg, BishopValueEg, KnightValueEg, PawnValueEg,
+        KingValue, QueenValueEg, RookValueEg, BishopValueEg, KnightValueEg, PawnValueEg,
+        KingValue, QueenValueEg, RookValueEg, BishopValueEg, KnightValueEg, PawnValueEg,
     }
 
 };
@@ -325,33 +325,33 @@ int tapered_piece_value(pc)
 void piece_square_table_init(void)
 {
 
-    const int KMF[] = { 64,128, 64,  0, 32,  0,128, 64};
-    const int KMR[] = {128, 64, 32, 16,  8,  4,  2,  1};
-    const int KEF[] = { 16, 32, 64,128,128, 64, 32, 16};
-    const int KER[] = { 16, 32, 64,128,128, 64, 32, 16};
+    const int KMF[] = {  2,  3,  1, -1,  1, -1,  3,  1};
+    const int KMR[] = {  3,  2,  1,  1,  0, -1, -2, -3};
+    const int KEF[] = {  1,  2,  2,  3,  3,  2,  2,  1};
+    const int KER[] = {  1,  2,  2,  3,  3,  2,  2,  1};
 
-    const int QMF[] = {  8, 16, 64, 32, 32, 64, 16,  8};
-    const int QMR[] = {  0, 16, 32, 64, 32, 16,  8,  4};
-    const int QEF[] = {  8, 16, 32, 64, 64, 32, 16,  8};
-    const int QER[] = {  8, 16, 32, 64, 64, 32, 16,  8};
+    const int QMF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
+    const int QMR[] = { 16, 15, 16, 16, 16,  8,  4,  1};
+    const int QEF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
+    const int QER[] = { 15, 15, 16, 16, 16, 16, 15, 15};
 
-    const int RMF[] = {  8,  0,  0, 32, 32, 16,  0,  8};
-    const int RMR[] = {  0,  4,  8, 16, 16,  8, 32,  4};
+    const int RMF[] = {  2,  1,  1,  3,  3,  2,  1,  2};
+    const int RMR[] = {  1,  1,  1,  2,  2,  1,  3,  1};
 
-    const int BMF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
-    const int BMR[] = {  0,  4,  8, 16,  8,  4,  2,  1};
-    const int BEF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
-    const int BER[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int BMF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
+    const int BMR[] = {  8, 10, 11, 11, 11,  6,  5,  4};
+    const int BEF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
+    const int BER[] = {  8, 10, 11, 11, 11, 11, 10,  8};
 
-    const int NMF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
-    const int NMR[] = {  0,  4,  8, 16,  8,  4,  2,  1};
-    const int NEF[] = {  2,  4,  8, 16, 16,  8,  4,  2};
-    const int NER[] = {  2,  4,  8, 16, 16,  8,  4,  2};
+    const int NMF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
+    const int NMR[] = {  5,  6,  8, 10, 10,  4,  3,  2};
+    const int NEF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
+    const int NER[] = {  5,  6,  8, 10, 10,  8,  6,  5};
 
-    const int PMF[] = {  8,  4,  2,  0,  0,  2,  4,  8};
-    const int PMR[] = {  0,  0,  2,  4,  2,  2,  8,  0};
-    const int PEF[] = {  1,  2,  4,  8,  8,  4,  2,  1};
-    const int PER[] = {  0,  0,  1,  2,  4,  6,  8,  0};
+    const int PMF[] = { -2, -1,  1,  3,  3,  1, -1, -2};
+    const int PMR[] = {  0, -1,  2,  3,  1,  2,  3,  0};
+    const int PEF[] = {  1,  2,  2,  3,  3,  2,  2,  1};
+    const int PER[] = {  0, -2, -1,  0,  1,  2,  3,  0};
 
     int sq,f,r,MG,EG;
     for (sq=0; sq<64; sq++)
@@ -359,24 +359,25 @@ void piece_square_table_init(void)
         f=F(sq);
         r=R(sq);
 
+        piece_square[0][0][sq]=0;
         /* kings */
 
-        MG=KMF[f]+KMR[r];
-        EG=KEF[f]+KER[r];
+        MG=KMF[f]*KMR[r];
+        EG=KEF[f]*KER[r];
         piece_square[0][WHITE_KING][sq]=MG;
         piece_square[0][BLACK_KING][FLIP(sq)]=-MG;
         piece_square[1][WHITE_KING][sq]=EG;
         piece_square[1][BLACK_KING][FLIP(sq)]=-EG;
 
         /* queens rook */
-        MG=QMF[f]+QMR[r];
-        EG=QEF[f]+QER[r];
+        MG=QMF[f]*QMR[r];
+        EG=QEF[f]*QER[r];
         piece_square[0][WHITE_QUEEN][sq]=MG;
         piece_square[0][BLACK_QUEEN][FLIP(sq)]=-MG;
         piece_square[1][WHITE_QUEEN][sq]=EG;
         piece_square[1][BLACK_QUEEN][FLIP(sq)]=-EG;
 
-        MG=RMF[f]+RMR[r];
+        MG=RMF[f]*RMR[r];
         EG = 0;
         piece_square[0][WHITE_ROOK][sq]=MG;
         piece_square[0][BLACK_ROOK][FLIP(sq)]=-MG;
@@ -384,15 +385,15 @@ void piece_square_table_init(void)
         piece_square[1][BLACK_ROOK][FLIP(sq)]=-EG;
 
         /**< bishop   knight */
-        MG=BMF[f]+BMR[r];
-        EG=BEF[f]+BER[r];
+        MG=BMF[f]*BMR[r];
+        EG=BEF[f]*BER[r];
         piece_square[0][WHITE_KNIGHT][sq]=MG;
         piece_square[0][BLACK_KNIGHT][FLIP(sq)]=-MG;
         piece_square[0][WHITE_BISHOP][sq]=MG;
         piece_square[0][BLACK_BISHOP][FLIP(sq)]=-MG;
 
-        MG=NMF[f]+NMR[r];
-        EG=NEF[f]+NER[r];
+        MG=NMF[f]*NMR[r];
+        EG=NEF[f]*NER[r];
         piece_square[1][WHITE_KNIGHT][sq]=EG;
         piece_square[1][BLACK_KNIGHT][FLIP(sq)]=-EG;
         piece_square[1][WHITE_BISHOP][sq]=EG;
@@ -400,8 +401,8 @@ void piece_square_table_init(void)
 
 
         /* pawn */
-        MG=PMF[f]+PMR[r];
-        EG=PEF[f]+PER[r];
+        MG=PMF[f]*PMR[r];
+        EG=PEF[f]*PER[r];
         piece_square[0][WHITE_PAWN][sq]=MG;
         piece_square[0][BLACK_PAWN][FLIP(sq)]=-MG;
         piece_square[1][WHITE_PAWN][sq]=EG;
@@ -555,12 +556,14 @@ void fill_side_struct(void)
 
     for (i=1; i<=12; i++)
     {
-        if (PIECE_COLOR(i))
-            white.mat+=tapered_piece_value(i)*piece_counter[i];
-        else
-            black.mat+=tapered_piece_value(i)*piece_counter[i];
+        if (i != WHITE_KING && i != BLACK_KING)
+        {
+            if (PIECE_COLOR(i))
+                white.mat+=tapered_piece_value(i)*piece_counter[i];
+            else
+                black.mat+=tapered_piece_value(i)*piece_counter[i];
+        }
     }
-
 
     if (white.mat == black.mat)
     {
@@ -1464,7 +1467,8 @@ mode=0:return -INF to -INF+2 when drawn.CLI functions calls.
 mode=1:return DRAWN_VALUE when drawn.   search functions calls.
 */
 {
-    int sq,pc,f;
+    int eval_limit = 4 * tapered_piece_value(WHITE_QUEEN);
+    int sq,pc,f,i;
     int score;
     int w,b,t;
     int drawn=(mode==0)?-INF:DRAWN_VALUE;
@@ -1498,11 +1502,31 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         case WHITE_KING:
             t = eval_white_king_pawn() * percent_val;
             score -= tapered(t, 0);
+            for (i=0; i<8; i++)
+            {
+                int to=move_king(sq,king_step[i]);
+                if (to!=-1)
+                {
+                    if ((board[to] != EMPTY && PIECE_COLOR(board[to]) != 0)
+                            || (black.attack[to] > 0)) continue;
+                    score += percent_val;
+                }
+            }
             break;
 
         case BLACK_KING:
             t = eval_white_king_pawn() * percent_val;
             score += tapered(t, 0);
+            for (i=0; i<8; i++)
+            {
+                int to=move_king(sq,king_step[i]);
+                if (to!=-1)
+                {
+                    if ((board[to] != EMPTY && PIECE_COLOR(board[to]) != 0)
+                            || (black.attack[to] > 0)) continue;
+                    score -= percent_val;
+                }
+            }
             break;
 
         case WHITE_ROOK:
@@ -1637,6 +1661,8 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         }
     }
 
+    score = MIN(eval_limit, score);
+    score = MAX(-eval_limit, score);
     return WTM ? score : -score;
 }
 
@@ -2236,7 +2262,7 @@ int search_contral(int depth)
         stop_search=1;
     else if (depth != 0)
         currdepth = depth;
-    else if (time_limit != INF)
+    else if (time_limit != 0)
     {
         clock_t t = clock();
         if (t > timer)
@@ -2249,31 +2275,34 @@ int search_contral(int depth)
     return stop_search;
 }
 
-int search_full(int depth, int alpha, int beta)
+int search_full(int depth, int alpha, int beta, int pv_node)
 {
     int best_move = 0;
     int score;
     struct move *moves = move_sp;
     int in_check = opp->attack[self->king];
-    int best_score = -INF;
+    int best_score = in_check ? -WIN + (start_ply - ply) : eval(1);
     struct mem tt;
     int ttflag = TTFLAG_ALPHA;
     int i;
     int new_depth;
     int move;
-    int ttable_move = 0;
     int PV_move = 0;
-    unsigned long move_no = 0;
-    int drawFactor = 1;
+    int ttable_move = 0;
+    int drawFactor = 100;
+    int move_searched = 0;
+    int is_pv;
 
     nodes++;
 
+
+
     /* draw by 50 moves rules */
-    drawFactor *= (board[RULE50] - ply + 1);
+    drawFactor /= MAX (1, (board[RULE50] - ply + 1));
 
     /* draw by postion repetetion */
     for (i=ply-4; i>=board[RULE50]; i-=2)
-        if (hash_arr[i] == hash_arr[ply]) drawFactor *= 2;
+        if (hash_arr[i] == hash_arr[ply]) drawFactor /= 2;
 
     /* check transposition table */
     tt = core[(hash_arr[ply]&(CORE-1))];
@@ -2281,18 +2310,40 @@ int search_full(int depth, int alpha, int beta)
     {
         if (tt.depth >= depth)
         {
+            int s = tt.score;
             if (tt.flag == TTFLAG_PV)
-                return tt.score;
-            else if ((tt.flag == TTFLAG_ALPHA) && (tt.score <= alpha))
-                return alpha;
-            else if ((tt.flag == TTFLAG_BETA) && (tt.score >= beta))
-                return beta;
+            {
+                alpha = MAX(alpha, s - 1);
+                beta = MIN(beta, s);
+            }
+            else if (tt.flag == TTFLAG_BETA)
+            {
+                alpha = MAX(alpha, s);
+            }
+            else if (tt.flag == TTFLAG_ALPHA)
+            {
+                beta = MIN(beta, s);
+            }
         }
         ttable_move = tt.move;
     }
 
+    alpha = MAX(alpha, -WIN + (start_ply - ply));
+    beta = MIN(beta, WIN - (start_ply - ply));
+    if(best_score > alpha)
+    {
+        alpha = best_score;
+    }
+    if (alpha >= beta)
+    {
+        if (!pv_node)
+            return beta;
+        else
+            alpha = beta - 1;
+    }
+
     if (ply >= MAX_PLY || search_contral(0) == 2)
-        return eval(1) / drawFactor;
+        return eval(1) * drawFactor / 100;
 
     pv_rear[ply]=pv_rear[ply+1]=0;
     if (ply <= pv_rear[start_ply])
@@ -2308,12 +2359,21 @@ int search_full(int depth, int alpha, int beta)
     else
         gen_all();
 
-    qsort(moves, move_sp-moves, sizeof(*moves), cmp_move_asc);
-
     histroy[PV_move&07777]              &= (PRESCORE_CAPTURES-1);
     histroy[ttable_move&07777]          &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][0]&07777]  &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][1]&07777]  &= (PRESCORE_CAPTURES-1);
+
+    /* checkmate or stalemate */
+    if (move_sp == move_stack)
+    {
+        if (in_check)
+            best_score = -WIN + (start_ply - ply);
+        else
+            best_score = DRAWN_VALUE;
+    }
+    qsort(moves, move_sp-moves, sizeof(*moves), cmp_move_asc);
+
 
     while (move_sp > moves)
     {
@@ -2327,24 +2387,26 @@ int search_full(int depth, int alpha, int beta)
             continue;
         }
 
-        move_no = ++move_searched[ply];
-
-        new_depth = depth-1;
-        if (depth > 0 && ttflag == TTFLAG_PV)
-        {
-            score = -search_full(new_depth, -alpha-1, -alpha);
-            if (score>alpha && score<beta)
-                score = -search_full(new_depth, -beta, -alpha);
-        }
+        ++move_searched;
+        is_pv = 0;
+        new_depth = in_check ? depth : depth - 1;
+        if (move_searched == 1 || new_depth <= 0 || pv_node)
+            is_pv = 1;
         else
-            score = -search_full(new_depth, -beta, -alpha);
-        if (score >= MATE) score--;
-        if (score <= -MATE) score++;
+        {
+            score = -search_full(new_depth, -alpha-1, -alpha, is_pv);
+            if (score > alpha && score < beta)
+            {
+                is_pv = 1;
+            }
+        }
+        if (is_pv)
+            score = -search_full(new_depth, -beta, -alpha, is_pv);
 
         undo_move();
 
         if (score > best_score ||
-                (move == best_move &&
+                (score >= best_score &&
                  pv_rear[ply] < pv_rear[ply+1]))
         {
             best_score = score;
@@ -2367,6 +2429,14 @@ int search_full(int depth, int alpha, int beta)
                     killer_move[ply][1]=killer_move[ply][0];
                     killer_move[ply][0]=move;
                 }
+
+                {
+                    histroy[best_move&07777] += depth*depth;
+                    while (histroy[best_move&07777] >= PRESCORE_CAPTURES)
+                        for (i=0; i<=07777; i++)
+                            histroy[i] >>= 1;
+                }
+
                 ttflag = TTFLAG_BETA;
                 move_sp = moves;
                 break;
@@ -2378,46 +2448,19 @@ int search_full(int depth, int alpha, int beta)
             }
         }
 
-        if (depth > 0)
+        if (clock() - time_log >= CLOCKS_PER_SEC * 5)
         {
-            if (clock() - time_log > CLOCKS_PER_SEC * 10)
-            {
-                time_log = clock();
+            time_log = clock();
+            used = MAX(1,(time_log - start_time));
 
-                printf("info depth %d deldepth %d score ",currdepth,currdepth-depth);
-                if (abs(score) <= MATE)
-                    printf ("cp %d", score * 100 / PawnValueEg);
-                else
-                    printf ("mate %d", (score > 0 ? WIN - score + 1 : -MATE - score) / 2);
-                if (score >= beta)
-                    printf(" lowerbound");
-                else if(score <= alpha)
-                    printf(" upperbound");
-                printf(" currmovenumber %lu currmove ",move_no);
-                for (i = start_ply; i < ply; i++)
-                {
-                    print_move_long(pv[i][i]);
-                    printf(" ");
-                }
-                print_move_long(move);
-                printf("\n");
-            }
+            printf("info time %lu nodes %lu nps %lu\n",
+                   used,
+                   nodes,
+                   (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
         }
     }
 
-
-
-    /* checkmate or stalemate */
-    if (best_score == -INF)
-    {
-        if (in_check)
-            best_score = -WIN;
-        else if (depth <= 0)
-            best_score = eval(1) / drawFactor;
-        else
-            best_score = DRAWN_VALUE;
-    }
-
+    if (depth >= tt.depth || tt.hash == 0)
     {
         tt.score = best_score;
         tt.hash = hash_arr[ply];
@@ -2425,19 +2468,6 @@ int search_full(int depth, int alpha, int beta)
         tt.flag = ttflag;
         tt.move = best_move;
         core[(hash_arr[ply]&(CORE-1))] = tt;
-
-        if (best_move & 07777)
-        {
-            if (best_score >= MATE || best_score <= -MATE)
-                histroy[best_move&07777] = PRESCORE_CAPTURES-1;
-            else
-            {
-                histroy[best_move&07777] += depth*depth;
-                while (histroy[best_move&07777] >= PRESCORE_CAPTURES)
-                    for (i=0; i<=07777; i++)
-                        histroy[i] >>= 1;
-            }
-        }
     }
 
     return best_score;
@@ -2449,7 +2479,7 @@ int search_main(void)
     int score;
     int move;
     int best_score = -INF;;
-    int alpha=-INF, beta=+INF, delta;
+    int alpha=-INF, beta=+INF, delta = 0;
     unsigned long n;
     struct move *m;
     struct mem tt;
@@ -2457,7 +2487,9 @@ int search_main(void)
     int ttable_move = 0;
     int i;
     int bestmovechange,low_fail;
-    unsigned long move_no;
+    unsigned move_searched;
+    int is_pv = 0;
+    int in_check;
 
     init_timer();
 
@@ -2475,6 +2507,7 @@ int search_main(void)
     nodes = 0;
     start_ply=ply;
     move_sp=move_stack;
+    memset(pv,0,sizeof(pv));
     memset(pv_rear,0,sizeof(pv_rear));
 
     tt = core[(hash_arr[ply]&(CORE-1))];
@@ -2500,12 +2533,11 @@ int search_main(void)
         bestmovechange = low_fail = 0;
         m = move_stack;
         pv_rear[ply+1]=0;
-        memset(move_searched,0,sizeof(move_searched));
-        printf("info depth %d\n",depth);
-
+        move_searched = 0;
 
         while (m < move_sp)
         {
+            in_check = opp->attack[self->king];
             do_move(m->move);
             if (self->attack[opp->king] != 0)
             {
@@ -2516,24 +2548,37 @@ int search_main(void)
 
             n = nodes;
             nodes++;
-            move_no = ++move_searched[ply];
+            ++move_searched;
+            is_pv = 0;
 
-            new_depth = depth-1;
-            score = -search_full(new_depth, -beta, -alpha);
+            in_check = opp->attack[self->king];
+            new_depth = in_check ? depth : depth - 1;
+            if (move_searched == 1 || new_depth <= 0)
+                is_pv = 1;
+            else
+            {
+                score = -search_full(new_depth, -alpha-1, -alpha, is_pv);
+                if (score > alpha && score < beta)
+                {
+                    is_pv = 1;
+                }
+            }
+            if (is_pv)
+                score = -search_full(new_depth, -beta, -alpha, is_pv);
 
             undo_move();
             m->prescore = nodes-n;
 
             if (score > best_score ||
-                    (m->move == move &&
+                    (score >= best_score &&
                      pv_rear[ply] < pv_rear[ply+1]))
             {
                 struct move temp;
 
-                if (score > best_score)
+                if (move != m -> move)
                     bestmovechange = 1;
 
-                best_score = score;
+                alpha = best_score = score;
                 move = m->move;
 
                 temp = *move_stack;
@@ -2550,32 +2595,59 @@ int search_main(void)
                 }
                 else
                     pv_rear[ply]=ply;
+
+                {
+                    time_log = clock();
+                    printf("info depth %d currmovenumber %d currmove ", depth, move_searched);
+                    print_move_long(move);
+                    printf("\n");
+                }
             }
 
-
-            if (clock() - time_log > CLOCKS_PER_SEC * 10)
+            if (clock() - time_log >= CLOCKS_PER_SEC * 5)
             {
                 time_log = clock();
+                used = MAX(1,(time_log - start_time));
 
-                printf("info depth %d score ",depth);
-                if (abs(score) <= MATE)
-                    printf ("cp %d", score * 100 / PawnValueEg);
-                else
-                    printf ("mate %d", (score > 0 ? WIN - score + 1 : -MATE - score) / 2);
-                if (score >= beta)
-                    printf(" lowerbound");
-                else if(score <= alpha)
-                    printf(" upperbound");
-                printf(" currmovenumber %lu currmove ",move_no);
-                print_move_long(m->move);
-                printf("\n");
+                printf("info time %lu nodes %lu nps %lu\n",
+                       used,
+                       nodes,
+                       (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
             }
-
 
             m++;
         }
+        {
+            time_log = clock();
+            used = MAX(1,(time_log - start_time));
 
-        delta = 18 + 5 * depth;
+            printf("info time %lu nodes %lu nps %lu\n",
+                   used,
+                   nodes,
+                   (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
+
+
+            printf("info depth %d score ",
+                   depth);
+            if (abs(best_score) <= MATE)
+                printf ("cp %d", best_score * 100 / PawnValueEg);
+            else
+                printf ("mate %d", (best_score > 0 ? WIN - best_score + 1 : -MATE - best_score) / 2);
+            if (best_score < alpha)
+                printf(" lowerbound");
+            else if(best_score >= beta)
+                printf(" upperbound");
+
+            printf(" pv");
+            for (i=ply; i<=pv_rear[ply]; i++)
+            {
+                printf(" ");
+                print_move_long(pv[ply][i]);
+            }
+            printf("\n");
+        }
+
+        delta += 5 * depth;
         if (best_score >= beta)
         {
             alpha = (alpha + beta) / 2;
@@ -2591,34 +2663,11 @@ int search_main(void)
         {
             alpha = best_score - delta;
             beta =best_score + delta;
+            depth++;
+            delta = depth > 6 ? 18 : 0;
         }
 
-        {
-            time_log = clock();
-            used = MAX(1,(time_log-ply_start_time));
 
-            printf("info depth %d time %lu nodes %lu nps %lu score ",
-                   depth,
-                   used,
-                   nodes,
-                   nodes / MAX(1, used / CLOCKS_PER_SEC) );
-            if (abs(best_score) <= MATE)
-                printf ("cp %d", best_score * 100 / PawnValueEg);
-            else
-                printf ("mate %d", (best_score > 0 ? WIN - best_score + 1 : -MATE - best_score) / 2);
-            if (best_score >= beta)
-                printf(" lowerbound");
-            else if(best_score <= alpha)
-                printf(" upperbound");
-
-            printf(" pv");
-            for (i=ply; i<=pv_rear[ply]; i++)
-            {
-                printf(" ");
-                print_move_long(pv[ply][i]);
-            }
-            printf("\n");
-        }
 
         if (best_score+depth >= WIN) break;
         if (best_score-depth <= -WIN) break;
@@ -2626,38 +2675,21 @@ int search_main(void)
 
         qsort(move_stack+1, move_sp-move_stack-1, sizeof(*m), cmp_move_asc);
 
-        if (time_limit !=INF)
+        if (time_limit != 0)
         {
             used = time_log - ply_start_time ;
             if (time_log + used * (1+bestmovechange+low_fail) >= timer)
                 break;
         }
-
-        depth++;
     }
 
     {
-        time_log = clock();
-        used = MAX(1,(time_log-start_time));
-
-        printf("info time %lu nodes %lu nps %lu score ",
-               used,
-               nodes,
-               nodes / MAX(1, used / CLOCKS_PER_SEC));
-        if (abs(best_score) <= MATE)
-            printf ("cp %d", best_score * 100 / PawnValueEg);
-        else
-            printf ("mate %d", (best_score > 0 ? WIN - best_score + 1 : -MATE - best_score) / 2);
-        if (best_score >= beta)
-            printf(" lowerbound");
-        else if(best_score <= alpha)
-            printf(" upperbound");
-
-        printf(" pv");
-        for (i=ply; i<=pv_rear[ply]; i++)
+        printf("bestmove ");
+        print_move_long(pv[ply][ply]);
+        if (pv_rear[ply] > ply)
         {
-            printf(" ");
-            print_move_long(pv[ply][i]);
+            printf(" ponder ");
+            print_move_long(pv[ply][ply+1]);
         }
         printf("\n");
     }
@@ -2667,8 +2699,8 @@ int search_main(void)
 }
 
 /*
- *    CLI commands
- */
+*    CLI commands
+*/
 void cmd_board(char *dummy )
 {
     UNUSED(dummy)
@@ -2692,26 +2724,23 @@ void cmd_set_depth(char *s)
 {
     if (1==sscanf(s, "%*s%d", &maxdepth))
     {
-        time_limit=INF;
         maxdepth = MAX(1, maxdepth);
     }
-    if (time_limit != INF)
-        printf("Max search time limit to %ld second(s).\n", (time_limit/CLOCKS_PER_SEC));
+    if (maxdepth != 0)
+        printf("Max search depth limit to %d plys.\n", maxdepth);
     else
-        printf("Max search death limit to %d plys.\n", maxdepth);
+        printf("No max search death limit.\n");
 }
 void cmd_set_time_limit(char *s)
 {
     if (1==sscanf(s, "%*s%ld", &time_limit))
     {
-        maxdepth=MAX_PLY;
         time_limit *= CLOCKS_PER_SEC;
-        time_limit = MAX(1, time_limit);
     }
-    if (time_limit != INF)
+    if (time_limit != 0)
         printf("Max search time limit to %ld second(s).\n", (time_limit/CLOCKS_PER_SEC));
     else
-        printf("Max search death limit to %d plys.\n", maxdepth);
+        printf("No max search time limit\n");
 }
 void cmd_both(char *dummy)
 {
@@ -3045,8 +3074,8 @@ void handle_command(char* name,char* line)
 }
 
 /*
- *    Main and initialization functions
- */
+*    Main and initialization functions
+*/
 char *startup_message=
     "HJCHESS " VERSION " (C) HE Jun (aka SkyWolf,Jeremy) 2012-2016\n";
 
