@@ -2,7 +2,7 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20160325.1"
+#define VERSION "V3.20160328.1"
 #define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -62,7 +62,7 @@ unsigned long time_limit = 60 * CLOCKS_PER_SEC;
 struct move
 {
     unsigned short move;
-    unsigned int prescore;
+    unsigned long prescore;
 } move_stack[35*MAX_PLY], *move_sp;
 
 int piece_square[2][13][64]; /* piece/square table*/
@@ -86,9 +86,9 @@ struct mem
 #define TTFLAG_ALPHA    3
 
 /* Constants for  move ordering (pre-scores) */
-#define PRESCORE_HIGH_VALUE     (0x4000)
-#define PRESCORE_BASE           (0x2000)
-#define PRESCORE_CAPTURES       (0x1000)
+#define PRESCORE_HIGH_VALUE     (0x40000000)
+#define PRESCORE_BASE           (0x20000000)
+#define PRESCORE_CAPTURES       (0x10000000)
 /*
  *    Chess defines
  */
@@ -324,13 +324,13 @@ int tapered_piece_value(pc)
 void piece_square_table_init(void)
 {
 
-    const int KMF[] = {  2,  3,  1, -1,  1, -1,  3,  1};
-    const int KMR[] = {  3,  2,  1,  1,  0, -1, -2, -3};
+    const int KMF[] = {  2,  3,  1,  0,  1,  0,  3,  1};
+    const int KMR[] = {  3,  1,  0,  0,  0,  0,  0,  0};
     const int KEF[] = {  1,  2,  2,  3,  3,  2,  2,  1};
     const int KER[] = {  1,  2,  2,  3,  3,  2,  2,  1};
 
     const int QMF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
-    const int QMR[] = { 16, 15, 16, 16, 16,  8,  4,  1};
+    const int QMR[] = { 16, 15, 16, 16,  8,  7,  4,  1};
     const int QEF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
     const int QER[] = { 15, 15, 16, 16, 16, 16, 15, 15};
 
@@ -338,19 +338,19 @@ void piece_square_table_init(void)
     const int RMR[] = {  1,  1,  1,  2,  2,  1,  3,  1};
 
     const int BMF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
-    const int BMR[] = {  8, 10, 11, 11, 11,  6,  5,  4};
+    const int BMR[] = {  8, 10, 11, 11,  6,  3,  1,  0};
     const int BEF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
     const int BER[] = {  8, 10, 11, 11, 11, 11, 10,  8};
 
     const int NMF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
-    const int NMR[] = {  5,  6,  8, 10, 10,  4,  3,  2};
+    const int NMR[] = {  5,  6,  8, 10,  5,  2,  1,  0};
     const int NEF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
     const int NER[] = {  5,  6,  8, 10, 10,  8,  6,  5};
 
-    const int PMF[] = { -2, -1,  1,  3,  3,  1, -1, -2};
-    const int PMR[] = {  0, -1,  2,  3,  1,  2,  3,  0};
-    const int PEF[] = {  1,  2,  2,  3,  3,  2,  2,  1};
-    const int PER[] = {  0, -2, -1,  0,  1,  2,  3,  0};
+    const int PMF[] = {  0,  0,  1,  2,  2,  1,  0,  0};
+    const int PMR[] = {  0,  1,  2,  8,  4,  2,  1,  0};
+    const int PEF[] = {  1,  2,  4,  8,  8,  4,  2,  1};
+    const int PER[] = {  0,  0,  1,  2,  4,  8, 16,  0};
 
     int sq,f,r,MG,EG;
     for (sq=0; sq<64; sq++)
@@ -764,7 +764,7 @@ inline void push_move_helper(unsigned short move, unsigned long prescore)
 
 void push_move(int fr, int to)
 {
-    unsigned short prescore = PRESCORE_BASE;
+    unsigned long prescore = PRESCORE_BASE;
     int move = MOVE(fr, to);
     int c=0,d=0;
 
@@ -1319,34 +1319,32 @@ mode=0:return -INF to -INF+2 when drawn.CLI functions calls.
 mode=1:return DRAWN_VALUE when drawn.   search functions calls.
 */
 {
-    int eval_limit = 4 * tapered_piece_value(WHITE_QUEEN);
+    int eval_limit = 2 * KingValue;
     int sq,pc,f,i;
     int score;
     int w,b,t;
-    int drawn=(mode==0)?-INF:DRAWN_VALUE;
+    int drawn = (mode == 0) ? -INF : DRAWN_VALUE;
     int percent_val;
 
-    score=(white.mat-black.mat);
+    score = (white.mat - black.mat);
 
     /* first:compute piece values*/
-    w=white.king;
-    b=black.king;
     for (sq=0; sq<64; sq++)
     {
         f=F(sq)+1;
         pc=board[sq];
 
+        percent_val = MAX(1, tapered_piece_value(pc));
+        {
+            w = white.attack[sq];
+            b = black.attack[sq];
+            t = (w > b) - (w < b);
+            score += t * percent_val;
+        }
+
         if (pc==EMPTY)
         {
             continue;
-        }
-
-        percent_val = piece_square_value(pc,sq) / 100;
-        {
-            t = 0;
-            t += (PIECE_COLOR(pc)?black.attack[sq]:white.attack[sq])>0?-2:2;
-            t += (PIECE_COLOR(pc)?white.attack[sq]:black.attack[sq])>0?1:-1;
-            score += t * percent_val;
         }
 
         score += piece_square_value(pc, sq);
@@ -1354,7 +1352,8 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         switch(pc)
         {
         case WHITE_KING:
-            t = eval_white_king_pawn() * percent_val;
+            score -= eval_white_king_pawn();
+            t = black.attack[white.king];
             for (i=0; i<8; i++)
             {
                 int to=move_king(sq,king_step[i]);
@@ -1365,11 +1364,12 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
                     t++;
                 }
             }
-            score += percent_val * t * t * t;
+            score += PawnValueEg * t;
             break;
 
         case BLACK_KING:
-            t = eval_white_king_pawn() * percent_val;
+            score += eval_black_king_pawn();
+            t = white.attack[black.king];
             for (i=0; i<8; i++)
             {
                 int to=move_king(sq,king_step[i]);
@@ -1380,7 +1380,7 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
 
                 }
             }
-            score -= percent_val * t * t * t;
+            score -= PawnValueEg * t;
             break;
 
         case WHITE_ROOK:
@@ -1517,8 +1517,6 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
             if (count>=2) return -INF+1;
         }
     }
-    else
-        score += rand() & 31;
 
     score = MIN(eval_limit, score);
     score = MAX(-eval_limit, score);
@@ -2342,6 +2340,7 @@ int search_main(void)
     int in_check;
     Line pv, local_pv;
     int ttflag = TTFLAG_ALPHA;
+    clock_t currmovedisp = 0;
 
 
     init_timer();
@@ -2360,9 +2359,7 @@ int search_main(void)
     nodes = 0;
     start_ply = ply;
     move_sp = move_stack;
-    memset(killer_move, 0,sizeof(killer_move));
-    memset(core, 0, sizeof(core));
-    memset(&pv, 0, sizeof(pv));
+    pv.count = 0;
 
     tt = core[(hash_arr[ply]&(CORE-1))];
     if (tt.hash == hash_arr[ply] && tt.flag != TTFLAG_BOOK)
@@ -2402,9 +2399,9 @@ int search_main(void)
 
             ++move_searched;
 
-            if (clock() / CLOCKS_PER_SEC != time_log / CLOCKS_PER_SEC)
+            if (clock() / CLOCKS_PER_SEC != currmovedisp / CLOCKS_PER_SEC)
             {
-                time_log = clock();
+                currmovedisp = clock();
 
                 printf("info depth %d currmovenumber %lu currmove ", depth, move_searched);
                 print_move_long(m->move);
@@ -2757,7 +2754,8 @@ void cmd_eval(char *dummy)
 
     r=eval(0);
     printf("%s\'s score:%+d,white mat.:%d,black mat.:%d."
-           ,WTM?"White":"Black",(r<=-MATE||r>=MATE)?DRAWN_VALUE:r*100/PawnValueEg,
+           ,WTM?"White":"Black",
+           (r <= -MATE || r >= MATE) ? DRAWN_VALUE : r * 100 / PawnValueEg,
            white.mat,black.mat);
     if (hash_arr[ply]==0)
         printf("board is empty\n");
