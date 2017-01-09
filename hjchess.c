@@ -2,7 +2,7 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20170109.1"
+#define VERSION "V3.20170109.2"
 #define MAX_PLY (100)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
@@ -57,7 +57,7 @@ signed char undo_stack[10*MAX_PLY], *undo_sp;
 U64 hash_arr[2048];
 
 int maxdepth = MAX_PLY;
-unsigned long time_limit = 60 * CLOCKS_PER_SEC;
+unsigned long time_limit = 30 * CLOCKS_PER_SEC;
 
 struct move
 {
@@ -2267,8 +2267,6 @@ int search_main(void)
     int in_check;
     Line pv, local_pv;
     int ttflag = TTFLAG_ALPHA;
-    clock_t currmovedisp = 0;
-
 
     init_timer();
 
@@ -2326,11 +2324,7 @@ int search_main(void)
 
             ++move_searched;
 
-            if (clock() / CLOCKS_PER_SEC != currmovedisp / CLOCKS_PER_SEC
-                || move_searched == 1)
             {
-                currmovedisp = clock();
-
                 printf("info depth %d currmovenumber %lu currmove ", depth, move_searched);
                 print_move_long(m->move);
                 printf("\n");
@@ -2827,30 +2821,30 @@ void cmd_help(char *dummy)
         printf("%-8s %s\n", c->cmd ? c->cmd : "", c->help);
         c++;
     }
-    printf("%-8s %s\n", CMD_QUIT_STR, "Quit program");
 }
 
 struct command commands[] =
 {
-    { "show",       cmd_board,      "show chessboard."                           },
-    { "ls",         cmd_list,       "list moves."                   },
-    { "new",        cmd_new,        "new games."                           },
-    { "undo",       cmd_undo,       "undo move."                               },
-    { "human",      cmd_human,      "human vs human."                           },
-    { "white",      cmd_white,      "computer vs human."                 }, /* 5 */
-    { "black",      cmd_black,      "human vs computer."                 },
-    {"both",        cmd_both,       "computer vs computer.(note:demo mode)."},
-    { "go",         cmd_go,         "computer go next move.(will set mode to human vs human after that.)"                     },
-    {"sd",          cmd_set_depth,  "set/show search depth."  },
-    {"st",       cmd_set_time_limit, "set/show  search time limit."},
-    { "test",       cmd_test,       "search test."                           }, /* 10 */
-    { "eval",       cmd_eval,       "show eval info."                           },
-    { "book",       cmd_book,       "find in opening book."         },
-    { "fen",        cmd_fen,        "set position by given FEN"},
-    { "getfen",     cmd_print_fen,  "show FEN for current position."       },
-    { "reload",     cmd_reopen,     "reload opening book"                     }, /* 15 */
-    { "clear",      cmd_clear,      "clear trans table"             },
-    { "help",       cmd_help,       "show this list"                     },
+    { "show",       cmd_board,      "Show chessboard."                           },
+    { "ls",         cmd_list,       "List moves."                   },
+    { "new",        cmd_new,        "Start new games."                           },
+    { "undo",       cmd_undo,       "Undo move."                               },
+    { "human",      cmd_human,      "Human vs human."                           },
+    { "white",      cmd_white,      "Computer vs human."                 }, /* 5 */
+    { "black",      cmd_black,      "Human vs computer."                 },
+    { "both",       cmd_both,       "Computer vs computer.(note:demo mode)."},
+    { "go",         cmd_go,         "Computer go next move.(will set mode to human vs human after that.)"                     },
+    { "sd",         cmd_set_depth,  "Set/show search depth."  },
+    { "st",         cmd_set_time_limit, "Set/show  search time limit."},
+    { "test",       cmd_test,       "Search test."                           }, /* 10 */
+    { "eval",       cmd_eval,       "Show eval info."                           },
+    { "book",       cmd_book,       "Find in opening book."         },
+    { "fen",        cmd_fen,        "Set position by given FEN"},
+    { "getfen",     cmd_print_fen,  "Show FEN for current position."       },
+    { "reload",     cmd_reopen,     "Reload opening book"                     }, /* 15 */
+    { "clear",      cmd_clear,      "Clear trans table"             },
+    { "help",       cmd_help,       "Show this list."                     },
+    { CMD_QUIT_STR, NULL,           "Quit program."},
     { NULL,         cmd_default,    NULL                                   },
 };
 
@@ -2871,7 +2865,7 @@ void handle_command(char* name,char* line)
 *    Main and initialization functions
 */
 char *startup_message=
-    "HJCHESS " VERSION " (C) HE Jun (aka SkyWolf,Jeremy) 2012-2016\n";
+    "HJCHESS " VERSION " (C) HE Jun (aka SkyWolf,Jeremy) 2012-2017\n";
 
 void response_move(void)
 {
