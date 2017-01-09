@@ -2,8 +2,8 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20160328.1"
-#define MAX_PLY (1000)
+#define VERSION "V3.20170109.1"
+#define MAX_PLY (100)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
 #define UNUSED(x) (x)=(x);
@@ -63,7 +63,7 @@ struct move
 {
     unsigned short move;
     unsigned long prescore;
-} move_stack[35*MAX_PLY], *move_sp;
+} move_stack[100*MAX_PLY], *move_sp;
 
 int piece_square[2][13][64]; /* piece/square table*/
 U64 zobrist[13][64];  /* Used for hash-key */
@@ -358,54 +358,54 @@ void piece_square_table_init(void)
         f=F(sq);
         r=R(sq);
 
-        piece_square[0][0][sq]=0;
+        piece_square[0][0][sq]=piece_square[1][0][sq]=KEF[f]*KER[r];
         /* kings */
 
         MG=KMF[f]*KMR[r];
         EG=KEF[f]*KER[r];
         piece_square[0][WHITE_KING][sq]=MG;
-        piece_square[0][BLACK_KING][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_KING][FLIP(sq)]=MG;
         piece_square[1][WHITE_KING][sq]=EG;
-        piece_square[1][BLACK_KING][FLIP(sq)]=-EG;
+        piece_square[1][BLACK_KING][FLIP(sq)]=EG;
 
         /* queens rook */
         MG=QMF[f]*QMR[r];
         EG=QEF[f]*QER[r];
         piece_square[0][WHITE_QUEEN][sq]=MG;
-        piece_square[0][BLACK_QUEEN][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_QUEEN][FLIP(sq)]=MG;
         piece_square[1][WHITE_QUEEN][sq]=EG;
-        piece_square[1][BLACK_QUEEN][FLIP(sq)]=-EG;
+        piece_square[1][BLACK_QUEEN][FLIP(sq)]=EG;
 
         MG=RMF[f]*RMR[r];
         EG = 0;
         piece_square[0][WHITE_ROOK][sq]=MG;
-        piece_square[0][BLACK_ROOK][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_ROOK][FLIP(sq)]=MG;
         piece_square[1][WHITE_ROOK][sq]=EG;
-        piece_square[1][BLACK_ROOK][FLIP(sq)]=-EG;
+        piece_square[1][BLACK_ROOK][FLIP(sq)]=EG;
 
         /**< bishop   knight */
         MG=BMF[f]*BMR[r];
         EG=BEF[f]*BER[r];
         piece_square[0][WHITE_KNIGHT][sq]=MG;
-        piece_square[0][BLACK_KNIGHT][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_KNIGHT][FLIP(sq)]=MG;
         piece_square[0][WHITE_BISHOP][sq]=MG;
-        piece_square[0][BLACK_BISHOP][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_BISHOP][FLIP(sq)]=MG;
 
         MG=NMF[f]*NMR[r];
         EG=NEF[f]*NER[r];
         piece_square[1][WHITE_KNIGHT][sq]=EG;
-        piece_square[1][BLACK_KNIGHT][FLIP(sq)]=-EG;
+        piece_square[1][BLACK_KNIGHT][FLIP(sq)]=EG;
         piece_square[1][WHITE_BISHOP][sq]=EG;
-        piece_square[1][BLACK_BISHOP][FLIP(sq)]=-MG;
+        piece_square[1][BLACK_BISHOP][FLIP(sq)]=MG;
 
 
         /* pawn */
         MG=PMF[f]*PMR[r];
         EG=PEF[f]*PER[r];
         piece_square[0][WHITE_PAWN][sq]=MG;
-        piece_square[0][BLACK_PAWN][FLIP(sq)]=-MG;
+        piece_square[0][BLACK_PAWN][FLIP(sq)]=MG;
         piece_square[1][WHITE_PAWN][sq]=EG;
-        piece_square[1][BLACK_PAWN][FLIP(sq)]=-EG;
+        piece_square[1][BLACK_PAWN][FLIP(sq)]=EG;
     }
 }
 int piece_square_value(int pc, int sq)
@@ -1169,100 +1169,20 @@ void print_move_long(int move)
     }
 }
 
-BYTE bd_help_msg=1;
-void print_board_wcs(void)
-{
-    int t,i;
-    for (i=1; i<=6; i++)
-    {
-        t=captures[i]+captures[i+6];
-        if (t>0)
-        {
-            if (captures[i]>0)
-                printf(" %cx%d",PIECE2CHAR(i),captures[i]);
-            else
-                printf("    ");
-        }
-    }
-}
-void print_board_bcs(void)
-{
-    int t,i;
-    for (i=1; i<=6; i++)
-    {
-        t=captures[i]+captures[i+6];
-        if (t>0)
-        {
-            if (captures[i+6]>0)
-                printf(" %cx%d",PIECE2CHAR(i),captures[i+6]);
-            else
-                printf("    ");
-        }
-    }
-}
-
 void print_board(void)
 {
-    const char aux_str[5] = " :*#";
-    const char col_str[3] = "bw";
-    char pc_ch,col_ch,aux_ch;
-
-    int i, j,sq;
-    short disp[64];
-    short aux[64];
-
-
-    for (i = 0; i < 64; i++)
-    {
-        disp[i] = board[i];
-        aux[i]=0;
-        if ((F(i)&1)==(R(i)&1))
-        {
-            if(disp[i]==0) disp[i]=13;
-            aux[i]=1;
-        }
-    }
-    if (last_src!=last_dest)
-    {
-        disp[last_src]=aux[last_src]?15:14;
-        aux[last_dest]=2;
-    }
+    int i, j;
 
     for (i = 7; i >= 0; i--)
     {
-        printf("\t\t    +---+---+---+---+---+---+---+---+\n");
 
-        printf("\t\t %2d |",i+1);
+        printf("\n\t\t%1d ",i+1);
         for (j = 0; j < 8; j++)
         {
-            sq=SQ(j,i);
-            aux_ch = aux_str[(i^j)&1];
-            if (board[sq] == EMPTY)
-            {
-                col_ch = aux_ch;
-                pc_ch = last_src == sq ? aux_str[2] : aux_ch;
-            }
-            else
-            {
-                col_ch = col_str[PIECE_COLOR(board[sq])];
-                pc_ch = toupper(PIECE2CHAR(board[sq]));
-            }
-            aux_ch = last_dest == sq ? aux_str[3] : aux_ch;
-
-            printf("%c%c%c|", col_ch, pc_ch, aux_ch);
+              printf("%c ", PIECE2CHAR(board[SQ(j,i)]));
         }
-
-        if (caps[0]>0 && i == 7)
-            print_board_bcs();
-        if (caps[1]>0 && i == 0)
-            print_board_wcs();
-
-        printf("\n");
     }
-
-    printf("\t\t    +-A-+-B-+-C-+-D-+-E-+-F-+-G-+-H-+");
-
-    printf("\n");
+    printf("\n\t\t  A B C D E F G H\n");
 
 }
 
@@ -1326,28 +1246,36 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
     int drawn = (mode == 0) ? -INF : DRAWN_VALUE;
     int percent_val;
 
-    score = (white.mat - black.mat);
+    score = 0;
 
     /* first:compute piece values*/
     for (sq=0; sq<64; sq++)
     {
         f=F(sq)+1;
         pc=board[sq];
+        percent_val = MAX(tapered_piece_value(pc) / 100, piece_square_value(pc, sq));
 
-        percent_val = MAX(1, tapered_piece_value(pc));
-        {
-            w = white.attack[sq];
-            b = black.attack[sq];
-            t = (w > b) - (w < b);
-            score += t * percent_val;
-        }
+
+        score += (white.attack[sq] - black.attack[sq]) * percent_val;
+
+        w = white.king;
+        b = black.king;
 
         if (pc==EMPTY)
         {
             continue;
         }
 
-        score += piece_square_value(pc, sq);
+        if (PIECE_COLOR(pc))
+        {
+            score += tapered_piece_value(pc);
+            score += piece_square_value(pc, sq);
+        }
+        else
+        {
+            score -= tapered_piece_value(pc);
+            score -= piece_square_value(pc, sq);
+        }
 
         switch(pc)
         {
@@ -1914,8 +1842,7 @@ void setup_board(char *fen)
         case 'P':
             if (rank==RANK_1||rank==RANK_8)
             {
-                puts("错误：局面非法(兵不能出现在第1及第8横线)!");
-                puts("提示：棋盘已清空!请重新用fen命令设置，或者用new命令开始新游戏。");
+                puts("ERROR: Bad FEN-string format!");
                 memset(board, 0, sizeof board);
                 hash_arr[ply]=0;
                 return;
@@ -1926,8 +1853,7 @@ void setup_board(char *fen)
             t--;
             if (t<-1||t==1)
             {
-                puts("错误：局面非法(棋子数量不正确,各方必须有且只能有1个王)!");
-                puts("提示：棋盘已清空!请重新用fen命令设置，或者用new命令开始新游戏。");
+                puts("ERROR: Bad FEN-string format!");
                 memset(board, 0, sizeof board);
                 hash_arr[ply]=0;
                 return;
@@ -2216,7 +2142,7 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
     if (move_sp == moves)
     {
         if (in_check)
-            return -WIN + (start_ply - ply);
+            return -WIN;
         else
             return eval_res;
     }
@@ -2292,17 +2218,18 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
                 }
             }
         }
+        else
 
-        if (clock() / CLOCKS_PER_SEC / 5 != time_log / CLOCKS_PER_SEC / 5)
-        {
-            time_log = clock();
-            used = MAX(1,(time_log - start_time));
+            if (clock() / CLOCKS_PER_SEC / 5 != time_log / CLOCKS_PER_SEC / 5)
+            {
+                time_log = clock();
+                used = MAX(1,(time_log - start_time));
 
-            printf("info time %lu nodes %lu nps %lu\n",
-                   used,
-                   nodes,
-                   (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
-        }
+                printf("info time %lu nodes %lu nps %lu\n",
+                       used,
+                       nodes,
+                       (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
+            }
     }
 
     if (depth > 0)
@@ -2399,7 +2326,8 @@ int search_main(void)
 
             ++move_searched;
 
-            if (clock() / CLOCKS_PER_SEC != currmovedisp / CLOCKS_PER_SEC)
+            if (clock() / CLOCKS_PER_SEC != currmovedisp / CLOCKS_PER_SEC
+                || move_searched == 1)
             {
                 currmovedisp = clock();
 
@@ -2521,6 +2449,7 @@ int search_main(void)
             }
             printf("\n");
         }
+
         if (best_score >= (alpha + beta) / 2)
         {
             alpha = (alpha + beta) / 2;
@@ -2768,9 +2697,8 @@ void cmd_eval(char *dummy)
     gen_all();
     in_check = opp->attack[self->king];
 
-    while (m<move_sp)
+    if (m<move_sp)
     {
-        move_sp--;
         if (r<=-MATE || r>=MATE)
         {
             switch (r)
@@ -2892,7 +2820,6 @@ void cmd_help(char *dummy)
 {
     UNUSED(dummy)
     struct command *c;
-    bd_help_msg=1;
     puts("Commands(format: <command> [argument]。):");
     c = commands;
     while (c->cmd != NULL)
