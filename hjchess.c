@@ -2031,7 +2031,7 @@ int currdepth;
 void init_timer(void)
 {
     time_log = start_time=clock();
-    timer=start_time+time_limit - CLOCKS_PER_SEC;
+    timer=start_time+time_limit - (MAX(time_limit, CLOCKS_PER_SEC) >> 8) ;
     stop_search=0;
 }
 int search_contral(int depth)
