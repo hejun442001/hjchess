@@ -2,19 +2,20 @@
  *       HE Jun's simple chess programa
  */
 
-#define VERSION "V3.20170109.2"
-#define MAX_PLY (100)
+#define MAX_PLY (1000)
 #define OPENING_BOOK_FILENAME "openbook.txt"
 #define INF (0x7FFF)
 #define UNUSED(x) (x)=(x);
 /*
  *    data strustures
  */
+#include "version.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <string.h>
 typedef unsigned char BYTE;
 typedef unsigned long long int U64;
 #define MAX(a,b) ((a)>(b) ? (a) : (b))
@@ -49,7 +50,7 @@ BYTE computer[3];
 
 typedef struct line_t
 {
-    unsigned short moves[MAX_PLY];
+    unsigned short moves[MAX_PLY+1];
     unsigned int count;
 } Line;
 
@@ -86,9 +87,9 @@ struct mem
 #define TTFLAG_ALPHA    3
 
 /* Constants for  move ordering (pre-scores) */
-#define PRESCORE_HIGH_VALUE     (0x40000000)
-#define PRESCORE_BASE           (0x20000000)
-#define PRESCORE_CAPTURES       (0x10000000)
+#define PRESCORE_HIGH_VALUE     (0x80000000)
+#define PRESCORE_BASE           (0x40000000)
+#define PRESCORE_CAPTURES       (0x20000000)
 /*
  *    Chess defines
  */
@@ -323,34 +324,33 @@ int tapered_piece_value(pc)
 
 void piece_square_table_init(void)
 {
+    const int AF[] = {  0,  1,  2,  3,  3,  2,  1,  0};
+    const int AR[] = {  0,  1,  2,  3,  3,  2,  1,  0};
 
-    const int KMF[] = {  2,  3,  1,  0,  1,  0,  3,  1};
-    const int KMR[] = {  3,  1,  0,  0,  0,  0,  0,  0};
-    const int KEF[] = {  1,  2,  2,  3,  3,  2,  2,  1};
-    const int KER[] = {  1,  2,  2,  3,  3,  2,  2,  1};
+    const int KMF[] = {  1,  3,  2,  0,  1,  0,  3,  1};
+    const int KMR[] = {  3,  0,  0,  0,  0,  0,  0,  0};
+    const int KEF[] = {  0,  1,  2,  3,  3,  2,  1,  0};
+    const int KER[] = {  0,  1,  2,  3,  3,  2,  1,  0};
 
-    const int QMF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
-    const int QMR[] = { 16, 15, 16, 16,  8,  7,  4,  1};
-    const int QEF[] = { 14, 15, 15, 16, 16, 15, 15, 14};
-    const int QER[] = { 15, 15, 16, 16, 16, 16, 15, 15};
+    const int QMF[] = {  3,  5,  7,  8,  9,  7,  5,  4};
+    const int QMR[] = {  7,  3,  5,  9,  8,  0,  0,  0};
+    const int QE[]  = {  6,  7,  8,  9,  9,  8,  7,  6};
 
-    const int RMF[] = {  2,  1,  1,  3,  3,  2,  1,  2};
-    const int RMR[] = {  1,  1,  1,  2,  2,  1,  3,  1};
+    const int RF[]  = {  0,  3,  5,  7,  7,  5,  3,  0};
+    const int RR[]  = {  3,  1,  1,  6,  6,  1,  7,  1};
 
-    const int BMF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
-    const int BMR[] = {  8, 10, 11, 11,  6,  3,  1,  0};
-    const int BEF[] = {  8,  9, 10, 11, 11, 10,  9,  8};
-    const int BER[] = {  8, 10, 11, 11, 11, 11, 10,  8};
+    const int BMF[] = {  2,  3,  5,  4,  4,  5,  3,  2};
+    const int BMR[] = {  2,  3,  4,  5,  4,  0,  0,  0};
+    const int BE[]  = {  2,  3,  4,  5,  5,  4,  3,  2};
 
-    const int NMF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
-    const int NMR[] = {  5,  6,  8, 10,  5,  2,  1,  0};
-    const int NEF[] = {  4,  6,  8,  8,  8,  8,  6,  4};
-    const int NER[] = {  5,  6,  8, 10, 10,  8,  6,  5};
+    const int NMF[] = {  1,  4,  8,  8,  8,  8,  6,  1};
+    const int NMR[] = {  1,  1,  2,  4,  3,  0,  0,  0};
+    const int NE[]  = {  1,  2,  3,  4,  4,  3,  2,  1};
 
     const int PMF[] = {  0,  0,  1,  2,  2,  1,  0,  0};
-    const int PMR[] = {  0,  1,  2,  8,  4,  2,  1,  0};
-    const int PEF[] = {  1,  2,  4,  8,  8,  4,  2,  1};
-    const int PER[] = {  0,  0,  1,  2,  4,  8, 16,  0};
+    const int PMR[] = {  0,  1,  2,  3,  0,  2,  1,  0};
+    const int PEF[] = {  1,  1,  2,  3,  3,  2,  1,  1};
+    const int PER[] = {  0,  0,  1,  1,  2,  2,  3,  0};
 
     int sq,f,r,MG,EG;
     for (sq=0; sq<64; sq++)
@@ -358,25 +358,26 @@ void piece_square_table_init(void)
         f=F(sq);
         r=R(sq);
 
-        piece_square[0][0][sq]=piece_square[1][0][sq]=KEF[f]*KER[r];
+        piece_square[0][0][sq]=
+            piece_square[1][0][sq]=AF[sq]+AR[sq];
         /* kings */
 
-        MG=KMF[f]*KMR[r];
-        EG=KEF[f]*KER[r];
+        MG=KMF[f]+KMR[r];
+        EG=KEF[f]+KER[r];
         piece_square[0][WHITE_KING][sq]=MG;
         piece_square[0][BLACK_KING][FLIP(sq)]=MG;
         piece_square[1][WHITE_KING][sq]=EG;
         piece_square[1][BLACK_KING][FLIP(sq)]=EG;
 
         /* queens rook */
-        MG=QMF[f]*QMR[r];
-        EG=QEF[f]*QER[r];
+        MG=QMF[f]+QMR[r];
+        EG=QE[f]+QE[r];
         piece_square[0][WHITE_QUEEN][sq]=MG;
         piece_square[0][BLACK_QUEEN][FLIP(sq)]=MG;
         piece_square[1][WHITE_QUEEN][sq]=EG;
         piece_square[1][BLACK_QUEEN][FLIP(sq)]=EG;
 
-        MG=RMF[f]*RMR[r];
+        MG=RF[f]+RR[r];
         EG = 0;
         piece_square[0][WHITE_ROOK][sq]=MG;
         piece_square[0][BLACK_ROOK][FLIP(sq)]=MG;
@@ -384,15 +385,15 @@ void piece_square_table_init(void)
         piece_square[1][BLACK_ROOK][FLIP(sq)]=EG;
 
         /**< bishop   knight */
-        MG=BMF[f]*BMR[r];
-        EG=BEF[f]*BER[r];
+        MG=BMF[f]+BMR[r];
+        EG=BE[f]+BE[r];
         piece_square[0][WHITE_KNIGHT][sq]=MG;
         piece_square[0][BLACK_KNIGHT][FLIP(sq)]=MG;
         piece_square[0][WHITE_BISHOP][sq]=MG;
         piece_square[0][BLACK_BISHOP][FLIP(sq)]=MG;
 
-        MG=NMF[f]*NMR[r];
-        EG=NEF[f]*NER[r];
+        MG=NMF[f]+NMR[r];
+        EG=NE[f]+NE[r];
         piece_square[1][WHITE_KNIGHT][sq]=EG;
         piece_square[1][BLACK_KNIGHT][FLIP(sq)]=EG;
         piece_square[1][WHITE_BISHOP][sq]=EG;
@@ -400,8 +401,8 @@ void piece_square_table_init(void)
 
 
         /* pawn */
-        MG=PMF[f]*PMR[r];
-        EG=PEF[f]*PER[r];
+        MG=PMF[f]+PMR[r];
+        EG=PEF[f]+PER[r];
         piece_square[0][WHITE_PAWN][sq]=MG;
         piece_square[0][BLACK_PAWN][FLIP(sq)]=MG;
         piece_square[1][WHITE_PAWN][sq]=EG;
@@ -1179,7 +1180,7 @@ void print_board(void)
         printf("\n\t\t%1d ",i+1);
         for (j = 0; j < 8; j++)
         {
-              printf("%c ", PIECE2CHAR(board[SQ(j,i)]));
+            printf("%c ", PIECE2CHAR(board[SQ(j,i)]));
         }
     }
     printf("\n\t\t  A B C D E F G H\n");
@@ -1240,105 +1241,99 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
 */
 {
     int eval_limit = 2 * KingValue;
-    int sq,pc,f,i;
+    int sq,pc,f;
     int score;
-    int w,b,t;
+    int w,b;
     int drawn = (mode == 0) ? -INF : DRAWN_VALUE;
-    int percent_val;
+    int minor_val,major_val;
 
     score = 0;
+    w = white.king;
+    b = black.king;
 
     /* first:compute piece values*/
     for (sq=0; sq<64; sq++)
     {
         f=F(sq)+1;
         pc=board[sq];
-        percent_val = MAX(tapered_piece_value(pc) / 100, piece_square_value(pc, sq));
+        minor_val = MAX(1, piece_square_value(pc, sq)) ;
+        major_val = minor_val << 4;
 
-
-        score += (white.attack[sq] - black.attack[sq]) * percent_val;
-
-        w = white.king;
-        b = black.king;
+        score += (white.attack[sq] - black.attack[sq]);
 
         if (pc==EMPTY)
         {
             continue;
         }
-
-        if (PIECE_COLOR(pc))
+        else if (PIECE_COLOR(pc))
         {
             score += tapered_piece_value(pc);
             score += piece_square_value(pc, sq);
+
+            if (black.attack[sq])
+            {
+                score -= minor_val;
+                if (white.attack[sq] == 0 || pc == WHITE_KING)
+                {
+                    score -= major_val;
+                }
+
+            }
         }
         else
         {
             score -= tapered_piece_value(pc);
             score -= piece_square_value(pc, sq);
+            if (white.attack[sq])
+            {
+                score += minor_val;
+                if (black.attack[sq] == 0 || pc == BLACK_KING)
+                {
+                    score += major_val;
+                }
+            }
         }
 
         switch(pc)
         {
         case WHITE_KING:
-            score -= eval_white_king_pawn();
-            t = black.attack[white.king];
-            for (i=0; i<8; i++)
-            {
-                int to=move_king(sq,king_step[i]);
-                if (to!=-1)
-                {
-                    if ((board[to] != EMPTY && PIECE_COLOR(board[to]) != 0)
-                            || (black.attack[to] > 0)) continue;
-                    t++;
-                }
-            }
-            score += PawnValueEg * t;
+            if (opening())
+                score -= eval_white_king_pawn();
             break;
 
         case BLACK_KING:
-            score += eval_black_king_pawn();
-            t = white.attack[black.king];
-            for (i=0; i<8; i++)
-            {
-                int to=move_king(sq,king_step[i]);
-                if (to!=-1)
-                {
-                    if ((board[to] != EMPTY && PIECE_COLOR(board[to]) == 0)
-                            || (white.attack[to] > 0)) continue;
-
-                }
-            }
-            score -= PawnValueEg * t;
+            if (opening())
+                score += eval_black_king_pawn();
             break;
 
         case WHITE_ROOK:
             if (white.pawn[f]==0)
             {
-                score += percent_val * 2;
+                score += minor_val;
                 if (black.pawn[f]==7)
-                    score += percent_val * 4;
+                    score += major_val;
             }
             else if (((F(w) < FILE_E) == (F(sq) < F(w)))
                      && (R(w) == R(sq) || R(w) == RANK_1))
-                score -= percent_val * (1 + ((board[CASTLE] & (CASTLE_WHITE_SHORT|CASTLE_WHITE_LONG))==0));
+                score -= minor_val * (1 + ((board[CASTLE] & (CASTLE_WHITE_SHORT|CASTLE_WHITE_LONG))==0));
 
             if (black.pawn[f]!=7)
-                score += percent_val;
+                score += minor_val;
 
             break;
         case BLACK_ROOK:
             if (black.pawn[f]==7)
             {
-                score-=percent_val * 2;
+                score -= minor_val;
                 if (white.pawn[f]==0)
-                    score-=percent_val * 5;
+                    score -= major_val;
             }
             else if (((F(b) < FILE_E) == (F(sq) < F(b)))
                      && (R(w) == R(sq) || R(w) == RANK_8))
-                score += percent_val * (1 + (board[CASTLE] & (CASTLE_BLACK_LONG|CASTLE_BLACK_SHORT))==0);
+                score += minor_val * (1 + (board[CASTLE] & (CASTLE_BLACK_LONG|CASTLE_BLACK_SHORT))==0);
 
             if (white.pawn[f]!=0)
-                score -= percent_val;
+                score -= minor_val;
             break;
 
         case WHITE_QUEEN:
@@ -1350,70 +1345,72 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
         case WHITE_KNIGHT:
             if (    R(sq) < RANK_5
                     && board[sq + OFFSET_N] == WHITE_PAWN)
-                score += percent_val;
+                score += minor_val;
             break;
         case BLACK_KNIGHT:
             if (    R(sq) >= RANK_5
                     && board[sq - OFFSET_N] == BLACK_PAWN)
-                score -= percent_val;
+                score -= minor_val;
             break;
 
         case WHITE_BISHOP:
             if (    R(sq) < RANK_5
                     && board[sq + OFFSET_N] == WHITE_PAWN)
-                score += percent_val;
+                score += minor_val;
+            if (piece_counter[WHITE_BISHOP] > 1)
+                score += major_val;
             break;
         case BLACK_BISHOP:
             if (    R(sq) >= RANK_5
                     && board[sq - OFFSET_N] == BLACK_PAWN)
-                score -= percent_val;
+                score -= minor_val;
+            if (piece_counter[BLACK_BISHOP] > 1)
+                score -= major_val;
             break;
 
         case WHITE_PAWN:
             /* penish for doubled */
             if (white.pawn[f] > R(sq))
-                score -= percent_val;
+                score -= minor_val;
 
             /* penish for isolated */
             if ((white.pawn[f - 1] == 0) &&
                     (white.pawn[f + 1] == 0))
-                score -= percent_val;
+                score -= major_val;
 
             /* penish for backwards */
             else if ((white.pawn[f - 1] < R(sq)) &&
                      (white.pawn[f + 1] < R(sq)))
-                score -= percent_val;
+                score -= minor_val;
             break;
 
             /* bonus for passed */
             if ((black.pawn[f - 1] == 7) &&
                     (black.pawn[f] == 7) &&
                     (black.pawn[f + 1] == 7))
-                score += percent_val * R(sq) * R(sq) * R(sq);
+                score += major_val;
 
         case BLACK_PAWN:
             /* penish for doubled */
             if (black.pawn[f] < R(sq))
-                score += percent_val;
+                score += minor_val;
 
             /* penish for isolated */
             if ((black.pawn[f - 1] == 7) &&
                     (black.pawn[f + 1] == 7))
-                score += percent_val;
+                score += major_val;
 
             /* penish for backwards */
             else if ((black.pawn[f - 1] > R(sq)) &&
                      (black.pawn[f + 1] > R(sq)))
-                score += percent_val;
+                score += minor_val;
 
             /* bonus for passed */
             if ((white.pawn[f - 1] == 0) &&
                     (white.pawn[f] == 0) &&
                     (white.pawn[f + 1] == 0))
-            {
-                t = 7 - R(sq);
-                score -= percent_val * t * t * t;
-            }
+
+                score -= major_val;
             break;
 
         default:
@@ -1427,7 +1424,6 @@ mode=1:return DRAWN_VALUE when drawn.   search functions calls.
     {
         if (white.mat+black.mat < tapered_piece_value(WHITE_ROOK))
             return drawn;
-
     }
 
     if (mode==0)
@@ -1693,9 +1689,12 @@ void load_book(char *filename)
     fp = fopen(filename, "r");
     if (!fp)
     {
-        printf("错误：缺少开局库文件（%s）!\n", filename);
+        printf("ERROR: missing file %s!\n", filename);
         return;
     }
+    else
+        printf("Loading opening book...");
+
     while (readline(line, sizeof(line), fp) >= 0)
     {
         s = line;
@@ -1706,7 +1705,7 @@ void load_book(char *filename)
             if (move<=0)
             {
                 if (move==0)
-                    printf("开局库相关行:%s\n",line);
+                    printf("book line:%s\n",line);
                 break;
             }
 
@@ -1727,6 +1726,7 @@ void load_book(char *filename)
     }
     fclose(fp);
     compress_core();
+    printf("Finished!%ld Loaded.\n",book_size );
 }
 
 int search_book(void)
@@ -1751,8 +1751,8 @@ int search_book(void)
     }
     while (core[l].hash == hash)
     {
-        printf(" (%d)",core[l].score);
-        print_move(core[l].move);
+
+
         sum+=core[l].score;
         r=core[l].hash | rand64();
         m=r%sum;
@@ -1760,7 +1760,6 @@ int search_book(void)
             move=core[l].move;
         if (!l--) break;
     }
-    printf("\n");
 
     return move;
 }
@@ -2054,10 +2053,9 @@ int search_contral(int depth)
     return stop_search;
 }
 
-int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
+int search_full(int depth, int _alpha, int _beta, int pv_node)
 {
     int alpha, beta;
-    int best_move = 0;
     int score;
     struct move *moves = move_sp;
     int in_check = opp->attack[self->king];
@@ -2068,17 +2066,15 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
     int i;
     int new_depth;
     int move;
-    int PV_move = 0;
     int ttable_move = 0;
     int drawFactor = 100;
     int move_searched = 0;
     int is_pv;
-    Line local_pv;
+    int best_move;
 
     nodes++;
     alpha = MAX(_alpha, -WIN + (start_ply - ply));
     beta = MIN(_beta, WIN - (start_ply - ply));
-    memset(&local_pv, 0, sizeof(local_pv));
 
     /* draw by 50 moves rules */
     drawFactor /= MAX (1, (board[RULE50] - ply + 1));
@@ -2121,9 +2117,6 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
     if (ply >= MAX_PLY || search_contral(0) == 2)
         return eval_res * drawFactor / 100;
 
-    PV_move = pv->count >= 2 ? pv->moves[1] : 0;
-
-    histroy[PV_move&07777]              |= PRESCORE_HIGH_VALUE;
     histroy[ttable_move&07777]          |= PRESCORE_HIGH_VALUE;
     histroy[killer_move[ply][0]&07777]  |= PRESCORE_HIGH_VALUE;
     histroy[killer_move[ply][1]&07777]  |= PRESCORE_HIGH_VALUE;
@@ -2133,7 +2126,6 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
     else
         gen_all();
 
-    histroy[PV_move&07777]              &= (PRESCORE_CAPTURES-1);
     histroy[ttable_move&07777]          &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][0]&07777]  &= (PRESCORE_CAPTURES-1);
     histroy[killer_move[ply][1]&07777]  &= (PRESCORE_CAPTURES-1);
@@ -2168,18 +2160,18 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
             is_pv = 1;
         else
         {
-            score = -search_full(new_depth, -alpha-1, -alpha, is_pv, &local_pv);
+            score = -search_full(new_depth, -alpha-1, -alpha, is_pv);
             if (score > _alpha && score < _beta)
             {
                 is_pv = 1;
             }
         }
         if (is_pv)
-            score = -search_full(new_depth, -_beta, -_alpha, is_pv, &local_pv);
+            score = -search_full(new_depth, -_beta, -_alpha, is_pv);
         if (score > MATE)
-            score++;
+            score --;
         if (score < -MATE)
-            score--;
+            score ++;
 
         undo_move();
 
@@ -2188,7 +2180,6 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
             best_score = score;
             best_move = move;
 
-
             if (score >= beta)
             {
                 if (move != killer_move[ply][0])
@@ -2196,8 +2187,8 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
                     killer_move[ply][1]=killer_move[ply][0];
                     killer_move[ply][0]=move;
                 }
-                histroy[best_move&07777] += depth*depth;
-                while (histroy[best_move&07777] >= PRESCORE_CAPTURES)
+                histroy[ best_move&07777] += depth*depth;
+                while (histroy[ best_move&07777] >= PRESCORE_CAPTURES)
                     for (i=0; i<=07777; i++)
                         histroy[i] >>= 1;
 
@@ -2205,22 +2196,15 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
                 move_sp = moves;
                 break;
             }
-            if (score >= alpha)
+            else if (score >= alpha)
             {
                 ttflag = TTFLAG_PV;
                 alpha = score;
 
-                if (pv->count <= local_pv.count)
-                {
-                    pv->moves[0] = best_move;
-                    memcpy(pv->moves + 1, local_pv.moves, local_pv.count * sizeof(short));
-                    pv->count = local_pv.count + 1;
-                }
             }
         }
-        else
 
-            if (clock() / CLOCKS_PER_SEC / 5 != time_log / CLOCKS_PER_SEC / 5)
+        if (clock() / CLOCKS_PER_SEC / 10 != time_log / CLOCKS_PER_SEC / 10)
             {
                 time_log = clock();
                 used = MAX(1,(time_log - start_time));
@@ -2240,7 +2224,7 @@ int search_full(int depth, int _alpha, int _beta, int pv_node, Line *pv)
             tt.hash = hash_arr[ply];
             tt.depth = depth;
             tt.flag = ttflag;
-            tt.move = best_move;
+            tt.move =  best_move;
             core[(hash_arr[ply]&(CORE-1))] = tt;
         }
     }
@@ -2265,8 +2249,8 @@ int search_main(void)
     unsigned long move_searched;
     int is_pv = 0;
     int in_check;
-    Line pv, local_pv;
     int ttflag = TTFLAG_ALPHA;
+    clock_t movedisp;
 
     init_timer();
 
@@ -2278,13 +2262,18 @@ int search_main(void)
     }
 
     move = search_book();
-    if (move) return move;
+    if (move)
+    {
+        printf("bestmove ");
+        print_move(move);
+        printf("\n");
+        return move;
+    }
     if (book_size>0) book_size=0;
 
     nodes = 0;
     start_ply = ply;
     move_sp = move_stack;
-    pv.count = 0;
 
     tt = core[(hash_arr[ply]&(CORE-1))];
     if (tt.hash == hash_arr[ply] && tt.flag != TTFLAG_BOOK)
@@ -2309,7 +2298,6 @@ int search_main(void)
         bestmovechange = low_fail = 0;
         m = move_stack;
         move_searched = 0;
-        memset(&local_pv, 0, sizeof(local_pv));
 
         while (m < move_sp)
         {
@@ -2324,7 +2312,11 @@ int search_main(void)
 
             ++move_searched;
 
+            if (clock() / CLOCKS_PER_SEC  != movedisp / CLOCKS_PER_SEC
+                    || move_searched == 1)
             {
+                movedisp = clock();
+
                 printf("info depth %d currmovenumber %lu currmove ", depth, move_searched);
                 print_move_long(m->move);
                 printf("\n");
@@ -2339,14 +2331,14 @@ int search_main(void)
                 is_pv = 1;
             else
             {
-                score = -search_full(new_depth, -alpha-1, -alpha, is_pv, &local_pv);
+                score = -search_full(new_depth, -alpha-1, -alpha, is_pv);
                 if (score > alpha && score < beta)
                 {
                     is_pv = 1;
                 }
             }
             if (is_pv)
-                score = -search_full(new_depth, -beta, -alpha, is_pv, &local_pv);
+                score = -search_full(new_depth, -beta, -alpha, is_pv);
 
             undo_move();
 
@@ -2354,24 +2346,16 @@ int search_main(void)
 
             if (score > best_score)
             {
+                struct move temp;
+
+                if (move != m -> move)
+                    bestmovechange = 1;
+
                 best_score = score;
-
-                if (score >= alpha)
-                {
-                    struct move temp;
-
-                    if (move != m -> move)
-                        bestmovechange = 1;
-
-                    alpha = score;
-                    move = m->move;
-                    temp = *move_stack;
-                    *move_stack = *m;
-                    *m = temp;
-                    pv.moves[0] = move;
-                    memcpy(pv.moves + 1, local_pv.moves, local_pv.count * sizeof(short));
-                    pv.count = local_pv.count + 1;
-                }
+                move = m->move;
+                temp = *move_stack;
+                *move_stack = *m;
+                *m = temp;
 
                 if (score >= beta)
                 {
@@ -2387,9 +2371,13 @@ int search_main(void)
 
                     break;
                 }
+                else if (score >= alpha)
+                {
+                    alpha = score;
+                }
             }
 
-            if (clock() / CLOCKS_PER_SEC / 5 != time_log / CLOCKS_PER_SEC / 5)
+            if (clock() / CLOCKS_PER_SEC / 10 != time_log / CLOCKS_PER_SEC / 10)
             {
                 time_log = clock();
                 used = MAX(1,(time_log - start_time));
@@ -2435,12 +2423,8 @@ int search_main(void)
             else if(best_score >= beta)
                 printf(" upperbound");
 
-            printf(" pv");
-            for (i = 0; i < pv.count; i++)
-            {
-                printf(" ");
-                print_move_long(pv.moves[i]);
-            }
+            printf(" pv ");
+            print_move_long(move);
             printf("\n");
         }
 
@@ -2473,19 +2457,15 @@ int search_main(void)
         depth++;
     }
 
+
     {
         printf("bestmove ");
-        print_move_long(pv.moves[0]);
-        if (pv.count > 1)
-        {
-            printf(" ponder ");
-            print_move_long(pv.moves[1]);
-        }
+        print_move_long(move);
         printf("\n");
     }
 
     move_sp = move_stack;
-    return pv.moves[0];
+    return move;
 }
 
 
@@ -2864,8 +2844,7 @@ void handle_command(char* name,char* line)
 /*
 *    Main and initialization functions
 */
-char *startup_message=
-    "HJCHESS " VERSION " (C) HE Jun (aka SkyWolf,Jeremy) 2012-2017\n";
+
 
 void response_move(void)
 {
@@ -2881,10 +2860,6 @@ void response_move(void)
         move = search_main();
         if (move && ply < MAX_PLY)
         {
-            printf("%ld. %s", 1+ply/2,(WTM) ? "" : "... ");
-            print_move(move);
-            printf("\n");
-
             do_move(move);
         }
         print_board();
@@ -2898,12 +2873,15 @@ void response_move(void)
 void init(void)
 {
     int i,j;
+
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
 
-    puts(startup_message);
-    piece_square_table_init();
+    printf("HJCHESS V");
+    printf(V_FULLVERSION_STRING);
+    printf(" (C) HE Jun (aka SkyWolf,Jeremy) 2012-2017\n");
 
+    piece_square_table_init();
     rand64_seed = time(NULL);
 
     for (i=0; i<13 ; i++)
