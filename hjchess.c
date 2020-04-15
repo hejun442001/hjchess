@@ -218,17 +218,17 @@ int opening(void)
 signed short king_step[8]=
 {
     +OFFSET_E, +OFFSET_N,
-    -OFFSET_E, -OFFSET_N,
-    +OFFSET_E+OFFSET_N, +OFFSET_E-OFFSET_N,
-    -OFFSET_E+OFFSET_N, -OFFSET_E-OFFSET_N
-};
+        -OFFSET_E, -OFFSET_N,
+        +OFFSET_E+OFFSET_N, +OFFSET_E-OFFSET_N,
+        -OFFSET_E+OFFSET_N, -OFFSET_E-OFFSET_N
+    };
 signed short knight_jump[8]=
 {
     +OFFSET_E*2+OFFSET_N, +OFFSET_E*2-OFFSET_N,
-    -OFFSET_E*2+OFFSET_N, -OFFSET_E*2-OFFSET_N,
-    +OFFSET_N*2+OFFSET_E, +OFFSET_N*2-OFFSET_E,
-    -OFFSET_N*2+OFFSET_E, -OFFSET_N*2-OFFSET_E,
-};
+        -OFFSET_E*2+OFFSET_N, -OFFSET_E*2-OFFSET_N,
+        +OFFSET_N*2+OFFSET_E, +OFFSET_N*2-OFFSET_E,
+        -OFFSET_N*2+OFFSET_E, -OFFSET_N*2-OFFSET_E,
+    };
 
 int move_king(int fr, int offset)
 {
@@ -317,7 +317,7 @@ int pieceValue[2][13] =
     }
 
 };
-int tapered_piece_value(pc)
+int tapered_piece_value(int pc)
 {
     return tapered(pieceValue[0][pc], pieceValue[1][pc]);
 }
@@ -358,8 +358,8 @@ void piece_square_table_init(void)
         f=F(sq);
         r=R(sq);
 
-        piece_square[0][0][sq]=
-            piece_square[1][0][sq]=AF[sq]+AR[sq];
+        piece_square[0][0][sq]=AF[F(sq)]+AR[R(sq)];
+        piece_square[1][0][sq]= piece_square[0][0][sq];
         /* kings */
 
         MG=KMF[f]+KMR[r];
@@ -752,7 +752,7 @@ inline int test_illegal(int move)
     undo_move();
     return r;
 }
-inline void push_move_helper(unsigned short move, unsigned long prescore)
+void push_move_helper(unsigned short move, unsigned long prescore)
 {
     if (prescore >= gen_threshold)
     {
@@ -2070,7 +2070,7 @@ int search_full(int depth, int _alpha, int _beta, int pv_node)
     int drawFactor = 100;
     int move_searched = 0;
     int is_pv;
-    int best_move;
+    int best_move = 0;
 
     nodes++;
     alpha = MAX(_alpha, -WIN + (start_ply - ply));
@@ -2204,16 +2204,16 @@ int search_full(int depth, int _alpha, int _beta, int pv_node)
             }
         }
 
-        if (clock() / CLOCKS_PER_SEC / 10 != time_log / CLOCKS_PER_SEC / 10)
-            {
-                time_log = clock();
-                used = MAX(1,(time_log - start_time));
+        if (clock() / CLOCKS_PER_SEC  != time_log / CLOCKS_PER_SEC )
+        {
+            time_log = clock();
+            used = MAX(1,(time_log - start_time));
 
-                printf("info time %lu nodes %lu nps %lu\n",
-                       used,
-                       nodes,
-                       (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
-            }
+            printf("info time %lu nodes %lu nps %lu\n",
+                   used,
+                   nodes,
+                   (nodes) / MAX(1, (used / CLOCKS_PER_SEC)));
+        }
     }
 
     if (depth > 0)
@@ -2250,7 +2250,7 @@ int search_main(void)
     int is_pv = 0;
     int in_check;
     int ttflag = TTFLAG_ALPHA;
-    clock_t movedisp;
+    clock_t movedisp = 0;
 
     init_timer();
 
@@ -2312,8 +2312,8 @@ int search_main(void)
 
             ++move_searched;
 
-            if (clock() / CLOCKS_PER_SEC  != movedisp / CLOCKS_PER_SEC
-                    || move_searched == 1)
+            if (clock() / CLOCKS_PER_SEC  != movedisp / CLOCKS_PER_SEC ||
+                move_searched == 1)
             {
                 movedisp = clock();
 
@@ -2377,7 +2377,8 @@ int search_main(void)
                 }
             }
 
-            if (clock() / CLOCKS_PER_SEC / 10 != time_log / CLOCKS_PER_SEC / 10)
+            if (clock() / CLOCKS_PER_SEC != time_log / CLOCKS_PER_SEC)
+            if (clock() / CLOCKS_PER_SEC != time_log / CLOCKS_PER_SEC)
             {
                 time_log = clock();
                 used = MAX(1,(time_log - start_time));
@@ -2877,9 +2878,8 @@ void init(void)
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
 
-    printf("HJCHESS V");
-    printf(V_FULLVERSION_STRING);
-    printf(" (C) HE Jun (aka SkyWolf,Jeremy) 2012-2017\n");
+    printf("HJCHESS V%s(%s)\n",V_UBUNTU_VERSION_STYLE, V_FULLVERSION_STRING);
+    printf(" (C) HE Jun (aka SkyWolf,Jeremy) 2011-%s\n", V_YEAR);
 
     piece_square_table_init();
     rand64_seed = time(NULL);
